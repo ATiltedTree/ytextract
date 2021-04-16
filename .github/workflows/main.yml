@@ -1,0 +1,72 @@
+name: Main
+on:
+  push:
+    paths-ignore:
+      - docs/
+      - \*.md
+    branches:
+      - main
+  pull_request:
+    paths-ignore:
+      - docs/
+      - \*.md
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          components: rustfmt
+      - name: Check | Format
+        run: cargo fmt --all -- --check
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly # We need nightly until 1.52.0 releases
+          override: true
+          profile: minimal
+          components: clippy
+      - name: Setup | Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Check | Lint
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    needs: check # Check first then run test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        rust: [nightly] # Stable currently does not work. Wait for 1.52.0
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          profile: minimal
+      - name: Setup | Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Build | Test
+        run: cargo test --all-features
+

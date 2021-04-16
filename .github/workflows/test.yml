@@ -1,0 +1,27 @@
+name: Test
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        rust: [nightly] # Stable currently does not work. Wait for 1.52.0
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          profile: minimal
+      - name: Setup | Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Build | Test
+        run: cargo test --all-features

@@ -9,8 +9,8 @@ pub enum Error {
     ///
     /// This is a bug.
     ///
-    /// Report it here: <https://github.com/ATiltedTree/youtube-extractor/issues/new>
-    #[error("Unable to find important data in the watch page. This is a bug. Please report it here: https://github.com/ATiltedTree/youtube-extractor/issues/new")]
+    /// Report it here: <https://github.com/ATiltedTree/ytextract/issues/new>
+    #[error("Unable to find important data in the watch page. This is a bug. Please report it here: https://github.com/ATiltedTree/ytextract/issues/new")]
     MissingData,
 
     /// A Error that occurs when JSON cannot be parsed

@@ -1,4 +1,4 @@
-# youtube-extractor
+# YTExtract
 
 A Rust library for extracting various information from YouTube pages
 

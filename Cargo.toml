@@ -1,10 +1,18 @@
 [package]
-name = "youtube-extractor"
+name = "ytextract"
 version = "0.1.0"
-authors = ["Tilmann Meyer <allescrafterx@gmail.com>"]
+authors = ["Tilmann Meyer <allescrafterx@gmail.com>", "YTExtract Contributers"]
 edition = "2018"
+description = "A Rust library for extracting various information from YouTube pages"
+readme = true
+repository = "https://github.com/ATiltedTree/ytextract/"
+license = "MIT"
+keywords = ["youtube", "youtube-dl", "youtube-downloader"]
+categories = ["multimedia"]
+include = ["LICENSE", "src", "Cargo.toml"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 serde = { version = "1.0.125", features = ["derive"] }
@@ -16,7 +24,7 @@ once_cell = "1.7.2"
 
 [dependencies.async-std]
 version = "1.9.0"
-features = ["unstable", "tokio1", "attributes"]
+features = ["tokio1", "attributes"]
 
 [dependencies.reqwest]
 version = "0.11.2"

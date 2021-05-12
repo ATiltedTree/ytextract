@@ -16,7 +16,7 @@ jobs:
       - name: Setup | Checkout
         uses: actions/checkout@v2
       - name: Setup | Rust
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v1.0.7
         with:
           toolchain: ${{ matrix.rust }}
           override: true

@@ -14,7 +14,7 @@ jobs:
         rust: [nightly] # Stable currently does not work. Wait for 1.52.0
     steps:
       - name: Setup | Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.3.4
       - name: Setup | Rust
         uses: actions-rs/toolchain@v1
         with:

@@ -8,7 +8,7 @@ pub(crate) fn validate_char(c: char) -> bool {
     matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-')
 }
 
-/// A Id describing a Video or Playlist.
+/// A Youtube Id, associated with various things.
 ///
 /// Like [`String`], the contents  have to be valid UTF-8 at all times.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,10 +1,10 @@
 //! Channel types.
 
-/// A [`Id`][crate::Id] describing a Channel.
+/// A [`Id`](crate::Id) describing a Channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Id(crate::Id<24>);
 
-/// The [`Error`][std::error::Error] produced when a invalid [`Id`] is
+/// The [`Error`](std::error::Error) produced when a invalid [`Id`] is
 /// encountered
 #[derive(Debug, thiserror::Error)]
 pub enum IdError {
@@ -28,8 +28,7 @@ pub enum IdError {
 
 impl From<crate::id::Error> for IdError {
     fn from(val: crate::id::Error) -> Self {
-        let crate::id::Error { expected: _, found } = val;
-        IdError::InvalidLength(found)
+        IdError::InvalidLength(val.found)
     }
 }
 
@@ -37,17 +36,14 @@ impl std::str::FromStr for Id {
     type Err = IdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        const PREFIXES: [&str; 2] = [
-            "https://www.youtube.com/channel/",
-            // No Prefix matched. Possibly naked id (UC_8wa1VbAAH-ksQ7aH3hkkg).
-            // Length and correctness will be checked later.
-            "",
-        ];
+        const PREFIXES: [&str; 1] = ["https://www.youtube.com/channel/"];
 
         let id = PREFIXES
             .iter()
             .find_map(|prefix| s.strip_prefix(prefix))
-            .unwrap();
+            // No Prefix matched. Possibly naked id (UC_8wa1VbAAH-ksQ7aH3hkkg).
+            // Length and correctness will be checked later.
+            .unwrap_or(s);
 
         if id.chars().all(crate::id::validate_char) {
             Ok(Self(id.parse()?))

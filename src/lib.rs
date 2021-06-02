@@ -22,13 +22,16 @@ pub mod channel;
 mod client;
 mod error;
 mod id;
+pub(crate) mod player;
+pub mod stream;
 mod thumbnail;
-pub(crate) mod utils;
 pub mod video;
+pub(crate) mod youtube;
 
 pub use client::Client;
 pub use error::Error;
 pub use id::Id;
+pub use stream::Stream;
 pub use thumbnail::Thumbnail;
 pub use video::Video;
 

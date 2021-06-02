@@ -13,20 +13,29 @@
 //! # }
 //! ```
 
-use std::time::Duration;
+pub use crate::youtube::player_response::PlayabilityErrorCode;
 
-use once_cell::sync::Lazy;
-use regex::Regex;
+use crate::{
+    youtube::player_response::{Microformat, StreamingData, VideoDetails},
+    Client, Stream, Thumbnail,
+};
+
 use serde_json::Value;
 
-use crate::Error;
-use crate::Thumbnail;
+use std::{sync::Arc, time::Duration};
 
-static DATA_EXP: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"var ytInitialData = (\{.*\});.*</script>").unwrap());
-static PLAYER_RESPONSE_EXP: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"var ytInitialPlayerResponse = (\{.*\});.*</script>").unwrap());
-static YTCFG_EXP: Lazy<Regex> = Lazy::new(|| Regex::new(r"\nytcfg.set\((\{.*\})\);").unwrap());
+/// A Error that occurs when querying a [`Video`](crate::Video).
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// A [`Video`] is unplayable due to a YouTube error
+    #[error("{code:?}: '{reason:?}'")]
+    Unplayable {
+        /// The [`PlayabilityErrorCode`] returned by YouTube for processing
+        code: PlayabilityErrorCode,
+        /// The optional Human-readable reason for the error
+        reason: Option<String>,
+    },
+}
 
 /// A Video found on YouTube
 ///
@@ -42,178 +51,122 @@ static YTCFG_EXP: Lazy<Regex> = Lazy::new(|| Regex::new(r"\nytcfg.set\((\{.*\})\
 /// ```
 #[derive(Debug)]
 pub struct Video {
-    client: reqwest::Client,
     initial_data: Value,
-    player_response: Value,
-    ytcfg: Value,
+    video_details: VideoDetails,
+    microformat: Microformat,
+    streaming_data: Option<StreamingData>,
+    client: Arc<Client>,
 }
 
 impl Video {
-    pub(crate) async fn get(client: reqwest::Client, id: Id) -> crate::Result<Self> {
-        let watch_page = client
-            .get(format!("https://youtube.com/watch?v={}&hl=en", id))
-            .send()
-            .await?
-            .error_for_status()?;
+    pub(crate) async fn get(client: Arc<Client>, id: Id) -> crate::Result<Self> {
+        let player_response = client.api.player(id).await?;
 
-        let body = watch_page.text().await?;
-
-        let initial_data = DATA_EXP
-            .captures(&body)
-            .and_then(|c| c.get(1))
-            .ok_or(Error::MissingData)?
-            .as_str();
-        let initial_data = serde_json::from_str(initial_data)?;
-
-        let player_response = PLAYER_RESPONSE_EXP
-            .captures(&body)
-            .and_then(|c| c.get(1))
-            .ok_or(Error::MissingData)?
-            .as_str();
-        let player_response = serde_json::from_str(player_response)?;
-
-        let ytcfg = YTCFG_EXP
-            .captures(&body)
-            .and_then(|c| c.get(1))
-            .ok_or(Error::MissingData)?
-            .as_str();
-        let ytcfg = serde_json::from_str(ytcfg)?;
-
-        Ok(Self {
-            client,
-            initial_data,
-            player_response,
-            ytcfg,
-        })
+        if player_response.playability_status.status.is_recoverable() {
+            Ok(Self {
+                initial_data: client.api.next(id).await?,
+                video_details: player_response
+                    .video_details
+                    .expect("Recoverable error did not contain video_details"),
+                microformat: player_response
+                    .microformat
+                    .expect("Recoverable error did not contain microformat"),
+                client,
+                streaming_data: player_response.streaming_data,
+            })
+        } else {
+            Err(Error::Unplayable {
+                code: player_response.playability_status.status,
+                reason: player_response.playability_status.reason,
+            }
+            .into())
+        }
     }
 
     /// The title of a [`Video`]
     pub fn title(&self) -> &str {
-        &self.player_response["videoDetails"]["title"]
-            .as_str()
-            .expect("A YouTube title was not a string")
+        &self.video_details.title
     }
 
     /// The [`Id`] of a [`Video`]
     pub fn id(&self) -> Id {
-        self.player_response["videoDetails"]["videoId"]
-            .as_str()
-            .expect("A YouTube VideoId was not a string")
-            .parse()
-            .expect("A YouTube VideoId was not the correct size")
+        self.video_details.video_id
     }
 
     /// The [`Duration`] of a [`Video`]
     pub fn duration(&self) -> Duration {
-        Duration::from_secs(
-            self.player_response["videoDetails"]["lengthSeconds"]
-                .as_str()
-                .expect("A YouTube duration was not found")
-                .parse()
-                .expect("A YouTube duration was not a integer"),
-        )
+        self.video_details.length_seconds
     }
 
     /// The keyword/tags of a [`Video`]
-    pub fn keywords(&self) -> Option<Vec<&str>> {
-        self.player_response["videoDetails"]["keywords"]
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .map(|v| v.as_str().expect("A YouTube keyword was not a string"))
-                    .collect::<Vec<&str>>()
-            })
+    pub fn keywords(&self) -> &Vec<String> {
+        &self.video_details.keywords
     }
 
-    /// The [`ChannelId`][crate::channel::Id] of a [`Video`]
+    /// The [`ChannelId`](crate::channel::Id) of a [`Video`]
     pub fn channel_id(&self) -> crate::channel::Id {
-        self.player_response["videoDetails"]["channelId"]
-            .as_str()
-            .expect("A YouTube ChannelId was not a string")
-            .parse()
-            .expect("A YouTube ChannelId was not the correct size")
+        self.video_details.channel_id
     }
 
     /// The author of a [`Video`]
     pub fn author(&self) -> &str {
-        self.player_response["videoDetails"]["author"]
-            .as_str()
-            .expect("A YouTube author was not a string")
+        &self.video_details.author
     }
 
     /// The description of a [`Video`]
     pub fn description(&self) -> &str {
-        self.player_response["videoDetails"]["shortDescription"]
-            .as_str()
-            .expect("A YouTube description was not a string")
+        &self.video_details.short_description
     }
 
     /// The views of a [`Video`]
     pub fn views(&self) -> u64 {
-        self.player_response["videoDetails"]["viewCount"]
-            .as_str()
-            .expect("A YouTube viewCount was not a string")
-            .parse()
-            .expect("A YouTube viewCount was not parsable as a unsigned integer")
+        self.video_details.view_count
     }
 
     /// The [`Ratings`] of a [`Video`]
     pub fn ratings(&self) -> Ratings {
-        let allowed = self.player_response["videoDetails"]["allowRatings"]
-            .as_bool()
-            .expect("allowRatings was not a bool");
+        if self.video_details.allow_ratings {
+            let fixed_tooltip = self.initial_data["contents"]["twoColumnWatchNextResults"]
+                ["results"]["results"]["contents"]
+                .as_array()
+                .expect("InitialData contents was not an array")
+                .iter()
+                .find_map(|v| v.get("videoPrimaryInfoRenderer"))
+                .expect("InitialData contents did not have a videoPrimaryInfoRenderer")
+                ["sentimentBar"]["sentimentBarRenderer"]["tooltip"]
+                .as_str()
+                .expect("sentimentBar tooltip was not a string")
+                .replace(',', "");
+            let (likes, dislikes) = fixed_tooltip
+                .split_once(" / ")
+                .expect("sentimentBar tooltip did not have a '/'");
 
-        let fixed_tooltip = self.initial_data["contents"]["twoColumnWatchNextResults"]["results"]
-            ["results"]["contents"]
-            .as_array()
-            .expect("InitialData contents was not an array")
-            .iter()
-            .find_map(|v| v.get("videoPrimaryInfoRenderer"))
-            .expect("InitialData contents did not have a videoPrimaryInfoRenderer")["sentimentBar"]
-            ["sentimentBarRenderer"]["tooltip"]
-            .as_str()
-            .expect("sentimentBar tooltip was not a string")
-            .replace(',', "");
-        let (likes, dislikes) = fixed_tooltip
-            .split_once(" / ")
-            .expect("sentimentBar tooltip did not have a '/'");
+            let likes = likes
+                .parse()
+                .expect("Likes we not parsable as a unsigned integer");
+            let dislikes = dislikes
+                .parse()
+                .expect("Dislikes we not parsable as a unsigned integer");
 
-        let likes = likes
-            .parse()
-            .expect("Likes we not parsable as a unsigned integer");
-        let dislikes = dislikes
-            .parse()
-            .expect("Dislikes we not parsable as a unsigned integer");
-
-        Ratings {
-            allowed,
-            likes,
-            dislikes,
+            Ratings::Allowed { likes, dislikes }
+        } else {
+            Ratings::NotAllowed
         }
     }
 
     /// If a [`Video`] is private
     pub fn private(&self) -> bool {
-        self.player_response["videoDetails"]["isPrivate"]
-            .as_bool()
-            .expect("isPrivate was not a bool")
+        self.video_details.is_private
     }
 
     /// If a [`Video`] is live (e.g. a Livestream) or if it was live in the past
     pub fn live(&self) -> bool {
-        self.player_response["videoDetails"]["isLiveContent"]
-            .as_bool()
-            .expect("isLiveContent was not a bool")
+        self.video_details.is_live_content
     }
 
-    /// The [`Thumbnails`][Thumbnail] of a [`Video`]
-    pub fn thumbnails(&self) -> Vec<Thumbnail> {
-        self.player_response["videoDetails"]["thumbnail"]["thumbnails"]
-            .as_array()
-            .expect("A Video did not have any thumbnails")
-            .iter()
-            .map(Thumbnail::from)
-            .collect()
+    /// The [`Thumbnails`](Thumbnail) of a [`Video`]
+    pub fn thumbnails(&self) -> &Vec<Thumbnail> {
+        &self.video_details.thumbnail.thumbnails
     }
 
     /// If a [`Video`] is age-restricted. This is the opposite of
@@ -222,66 +175,66 @@ impl Video {
         !self.family_safe()
     }
 
-    fn microformat(&self) -> &Value {
-        &self.player_response["microformat"]["playerMicroformatRenderer"]
+    fn microformat(&self) -> &crate::youtube::player_response::PlayerMicroformatRenderer {
+        &self.microformat.player_microformat_renderer
     }
 
     /// If a [`Video`] is family safe
     pub fn family_safe(&self) -> bool {
-        self.microformat()["isFamilySafe"]
-            .as_bool()
-            .expect("isFamilySafe was not a bool!")
+        self.microformat().is_family_safe
     }
 
     /// If a [`Video`] is unlisted
     pub fn unlisted(&self) -> bool {
-        self.microformat()["isUnlisted"]
-            .as_bool()
-            .expect("isUnlisted was not a bool!")
+        self.microformat().is_unlisted
     }
 
     /// The category a [`Video`] belongs in
     pub fn category(&self) -> &str {
-        self.microformat()["category"]
-            .as_str()
-            .expect("category was not a string!")
+        &self.microformat().category
     }
 
     /// The publish date of a [`Video`]
     pub fn publish_date(&self) -> chrono::NaiveDate {
-        self.microformat()["publishDate"]
-            .as_str()
-            .expect("publishDate was not a string!")
-            .parse()
-            .expect("publishDate was not parsable as a NaiveDate")
+        self.microformat().publish_date
     }
 
     /// The upload date of a [`Video`]
     pub fn upload_date(&self) -> chrono::NaiveDate {
-        self.microformat()["uploadDate"]
-            .as_str()
-            .expect("uploadDate was not a string!")
-            .parse()
-            .expect("uploadDate was not parsable as a NaiveDate")
+        self.microformat().upload_date
+    }
+
+    /// The [`Stream`]s of a [`Video`]
+    pub async fn streams(&self) -> crate::Result<impl Iterator<Item = Stream>> {
+        crate::stream::get(
+            Arc::clone(&self.client),
+            self.id(),
+            self.streaming_data.clone(),
+        )
+        .await
     }
 }
 
 /// Ratings on a video
 #[derive(Debug)]
-pub struct Ratings {
-    /// If liking/disliking is allowed on the [`Video`]
-    pub allowed: bool,
-    /// The amount of likes a [`Video`] received
-    pub likes: u64,
-    /// The amount of dislikes a [`Video`] received
-    pub dislikes: u64,
+pub enum Ratings {
+    /// Rating is allowed
+    Allowed {
+        /// The amount of likes a [`Video`] received
+        likes: u64,
+        /// The amount of dislikes a [`Video`] received
+        dislikes: u64,
+    },
+
+    /// Rating is not allowed
+    NotAllowed,
 }
 
-/// A [`Id`][crate::Id] describing a Video.
+/// A [`Id`](crate::Id) describing a Video.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Id(crate::Id<11>);
 
-/// The [`Error`][std::error::Error] produced when a invalid [`Id`] is
+/// The [`Error`](std::error::Error) produced when a invalid [`Id`] is
 /// encountered
 #[derive(Debug, thiserror::Error)]
 pub enum IdError {
@@ -314,19 +267,18 @@ impl std::str::FromStr for Id {
     type Err = IdError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        const PREFIXES: [&str; 4] = [
+        const PREFIXES: [&str; 3] = [
             "https://www.youtube.com/watch?v=",
             "https://youtu.be/",
             "https://www.youtube.com/embed/",
-            // No Prefix matched. Possibly naked id (OLWUqW4BRl4). Length and
-            // correctness will be checked later.
-            "",
         ];
 
         let id = PREFIXES
             .iter()
             .find_map(|prefix| s.strip_prefix(prefix))
-            .unwrap();
+            // No Prefix matched. Possibly naked id (OLWUqW4BRl4). Length and
+            // correctness will be checked later.
+            .unwrap_or(s);
 
         if id.chars().all(crate::id::validate_char) {
             Ok(Self(id.parse()?))
@@ -344,6 +296,8 @@ impl std::fmt::Display for Id {
 
 #[cfg(test)]
 mod test {
+    use crate::video::Ratings;
+
     #[async_std::test]
     async fn get() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::client::Client::new().await?;
@@ -361,7 +315,7 @@ mod test {
         assert_eq!(video.duration(), std::time::Duration::from_secs(1358));
         assert_eq!(
             video.keywords(),
-            Some(vec![
+            &vec![
                 "photoshop",
                 "adobe",
                 "1.0",
@@ -388,7 +342,7 @@ mod test {
                 "oregon trail",
                 "nightmare fuel",
                 "scsi2sd"
-            ])
+            ]
         );
         assert_eq!(video.channel_id(), "UCXuqSBlHAE6Xw-yeJA0Tunw".parse()?);
         assert_eq!(video.author(), "Linus Tech Tips");
@@ -396,9 +350,12 @@ mod test {
         assert!(video.views() >= 1_068_917);
 
         let ratings = video.ratings();
-        assert!(ratings.allowed);
-        assert!(ratings.likes >= 51_745);
-        assert!(ratings.dislikes >= 622);
+        if let Ratings::Allowed { likes, dislikes } = ratings {
+            assert!(likes >= 51_745);
+            assert!(dislikes >= 622);
+        } else {
+            unreachable!();
+        }
 
         assert!(!video.private());
         assert!(!video.live());
@@ -431,16 +388,19 @@ mod test {
 
         assert_eq!(video.id(), "9Jg_Fwc0QOY".parse()?);
         assert_eq!(video.duration(), std::time::Duration::from_secs(10));
-        assert_eq!(video.keywords(), None);
+        assert_eq!(video.keywords(), &Vec::<String>::new());
         assert_eq!(video.channel_id(), "UCZqdX9k5eyv1aO7i2746bXg".parse()?);
         assert_eq!(video.author(), "ATiltedTree");
         assert!(!video.description().is_empty());
         assert!(video.views() >= 6);
 
         let ratings = video.ratings();
-        assert!(ratings.allowed);
-        assert!(ratings.likes == 0);
-        assert!(ratings.dislikes == 0);
+        if let Ratings::Allowed { likes, dislikes } = ratings {
+            assert!(likes == 0);
+            assert!(dislikes == 0);
+        } else {
+            unreachable!();
+        }
 
         assert!(!video.private());
         assert!(!video.live());
@@ -473,16 +433,19 @@ mod test {
 
         assert_eq!(video.id(), "uc8BltmHWww".parse()?);
         assert_eq!(video.duration(), std::time::Duration::from_secs(110));
-        assert_eq!(video.keywords(), None);
+        assert_eq!(video.keywords(), &Vec::<String>::new());
         assert_eq!(video.channel_id(), "UCNsCnSYsc6RT9LNxysuEwNg".parse()?);
         assert_eq!(video.author(), "lol mas18");
         assert!(!video.description().is_empty());
         assert!(video.views() >= 245_175);
 
         let ratings = video.ratings();
-        assert!(ratings.allowed);
-        assert!(ratings.likes >= 2_724);
-        assert!(ratings.dislikes >= 164);
+        if let Ratings::Allowed { likes, dislikes } = ratings {
+            assert!(likes >= 2_724);
+            assert!(dislikes >= 164);
+        } else {
+            unreachable!();
+        }
 
         assert!(!video.private());
         assert!(!video.live());

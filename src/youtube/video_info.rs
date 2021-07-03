@@ -1,8 +1,6 @@
-use once_cell::sync::Lazy;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
-static URL: Lazy<Url> = Lazy::new(|| Url::parse("https://youtube.com/get_video_info").unwrap());
+static URL: &str = "https://youtube.com/get_video_info";
 
 #[derive(Debug, Deserialize)]
 pub struct VideoInfo {
@@ -36,7 +34,7 @@ impl VideoInfo {
         };
 
         let response = client
-            .get(URL.clone())
+            .get(URL)
             .query(&parms)
             .send()
             .await?

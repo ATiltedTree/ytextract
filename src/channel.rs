@@ -22,14 +22,8 @@ pub enum IdError {
 
     /// A [`Id`] had an invalid length. All [`Id`]s have to be 24 characters
     /// long
-    #[error("A ChannelId has to be 24 characters long but was {0} long")]
-    InvalidLength(usize),
-}
-
-impl From<crate::id::Error> for IdError {
-    fn from(val: crate::id::Error) -> Self {
-        IdError::InvalidLength(val.found)
-    }
+    #[error(transparent)]
+    InvalidLength(#[from] crate::id::Error),
 }
 
 impl std::str::FromStr for Id {

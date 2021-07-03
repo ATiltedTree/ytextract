@@ -3,7 +3,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let client = ytextract::Client::new().await?;
 //!
 //! let streams = client.streams("nI2e-J6fsuk".parse()?).await?;
@@ -20,11 +20,10 @@ mod audio;
 mod common;
 mod video;
 
+pub use self::audio::Stream as Audio;
+pub use self::common::Stream as Common;
+pub use self::video::Stream as Video;
 pub use crate::youtube::player_response::Quality;
-pub use audio::Stream as AudioStream;
-pub use common::Stream as CommonStream;
-pub use video::Stream as VideoStream;
-
 use crate::{
     youtube::{
         player_response::{FormatType, PlayabilityErrorCode, StreamingData},
@@ -32,7 +31,8 @@ use crate::{
     },
     Client,
 };
-use std::sync::Arc;
+use reqwest::Url;
+use std::{collections::HashMap, sync::Arc};
 
 /// A Error that can occur when working with [`Stream`]s
 #[derive(Debug, thiserror::Error)]
@@ -86,12 +86,11 @@ pub(crate) async fn get(
 }
 
 /// A Stream of a YouTube video
-#[derive(Debug)]
 pub enum Stream {
-    /// A [`AudioStream`]
-    Audio(AudioStream),
-    /// A [`VideoStream`]
-    Video(VideoStream),
+    /// A [`Audio`]
+    Audio(Audio),
+    /// A [`Video`]
+    Video(Video),
 }
 
 impl Stream {
@@ -100,20 +99,53 @@ impl Stream {
         client: Arc<Client>,
     ) -> Self {
         match format.ty {
-            FormatType::Audio(audio) => Self::Audio(AudioStream {
-                common: CommonStream {
+            FormatType::Audio(audio) => Self::Audio(Audio {
+                common: Common {
+                    url: Stream::resolve_url(&client, &format.base),
                     format: format.base,
                     client,
                 },
                 audio,
             }),
-            FormatType::Video(video) => Self::Video(VideoStream {
-                common: CommonStream {
+            FormatType::Video(video) => Self::Video(Video {
+                common: Common {
+                    url: Stream::resolve_url(&client, &format.base),
                     format: format.base,
                     client,
                 },
                 video,
             }),
+        }
+    }
+
+    fn resolve_url(
+        client: &Arc<Client>,
+        format: &crate::youtube::player_response::CommonFormat,
+    ) -> Url {
+        match &format.url {
+            Some(url) => url.clone(),
+            None => {
+                let signature_cipher = format
+                    .signature_cipher
+                    .as_ref()
+                    .expect("Stream did not have a URL or signatureCipher");
+                let root: HashMap<String, String> =
+                    serde_urlencoded::from_str(signature_cipher.as_str())
+                        .expect("signatureCipher was not urlencoded");
+
+                let signature = client.player.cipher().run(root["s"].clone());
+                let signature_arg = &root["sp"];
+                let mut url = Url::parse(&root["url"])
+                    .expect("signatureCipher url attribute was not a valid URL");
+
+                let query = url
+                    .query()
+                    .map(|q| format!("{}&{}={}", q, signature_arg, signature))
+                    .expect("URL did not have a query");
+
+                url.set_query(Some(&query));
+                url
+            }
         }
     }
 
@@ -129,7 +161,7 @@ impl Stream {
 }
 
 impl std::ops::Deref for Stream {
-    type Target = CommonStream;
+    type Target = Common;
 
     fn deref(&self) -> &Self::Target {
         match self {
@@ -139,9 +171,29 @@ impl std::ops::Deref for Stream {
     }
 }
 
+impl std::fmt::Debug for Stream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("Stream");
+
+        match self {
+            Stream::Audio(audio) => {
+                audio.common.debug(&mut debug);
+                audio.debug(&mut debug);
+            }
+            Stream::Video(video) => {
+                video.common.debug(&mut debug);
+                video.debug(&mut debug);
+            }
+        }
+        debug.finish()?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod test {
-    #[async_std::test]
+    #[tokio::test]
     async fn get() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::Client::new().await?;
 
@@ -153,17 +205,16 @@ mod test {
 
         Ok(())
     }
-    #[async_std::test]
+
+    #[tokio::test]
     async fn age_restricted() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::Client::new().await?;
 
-        let streams = client
+        let mut streams = client
             .streams("https://www.youtube.com/watch?v=9Jg_Fwc0QOY".parse()?)
             .await?;
 
-        for stream in streams {
-            stream.url().await?;
-        }
+        assert!(streams.next().is_some());
 
         Ok(())
     }

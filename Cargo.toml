@@ -24,6 +24,8 @@ serde_with = { version = "1", features = ["chrono"] }
 log = "0.4"
 bytes = "1"
 futures-core = "0.3"
+async-stream = "0.3"
+lazy-regex = "2"
 
 [dependencies.chrono]
 version = "0.4"
@@ -34,6 +36,9 @@ features = ["std"]
 version = "0.11"
 features = ["stream", "json"]
 
-[dev-dependencies.async-std]
+[dev-dependencies]
+tokio-stream = "0.1"
+
+[dev-dependencies.tokio]
 version = "1"
-features = ["tokio1", "attributes"]
+features = ["macros", "rt-multi-thread"]

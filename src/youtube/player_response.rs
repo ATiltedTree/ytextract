@@ -71,6 +71,7 @@ pub struct PlayerMicroformatRenderer {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamingData {
+    #[serde(default)]
     pub adaptive_formats: Vec<Format>,
 }
 
@@ -220,7 +221,7 @@ pub struct PlayabilityStatus {
     pub reason: Option<String>,
 }
 
-// The doc(hidden) error codes are no actually errors or are handled by us, but
+// The doc(hidden) error codes are not actually errors or are handled by us, but
 // because this enum is `#[non_exhaustive]` this is fine
 /// A error-code returned by YouTube when a [`Video`](crate::Video) is unplayable
 #[derive(Debug, serde::Deserialize, PartialEq, Eq, Clone, Copy)]
@@ -239,6 +240,9 @@ pub enum PlayabilityErrorCode {
 
     /// A Generic Error
     Error,
+
+    /// Unplayable
+    Unplayable,
 }
 
 impl PlayabilityErrorCode {
@@ -249,6 +253,7 @@ impl PlayabilityErrorCode {
                 | Self::AgeVerificationRequired
                 | Self::LoginRequired
                 | Self::LiveStreamOffline
+                | Self::Unplayable
         )
     }
     pub(crate) fn is_stream_recoverable(self) -> bool {

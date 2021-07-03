@@ -3,7 +3,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let client = ytextract::Client::new().await?;
 //!
 //! let video = client.video("nI2e-J6fsuk".parse()?).await?;
@@ -42,7 +42,7 @@ pub enum Error {
 /// # Example
 ///
 /// ```rust
-/// # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let client = ytextract::Client::new().await?;
 ///
 /// let video = client.video("nI2e-J6fsuk".parse()?).await?;
@@ -252,15 +252,8 @@ pub enum IdError {
 
     /// A [`Id`] had an invalid length. All [`Id`]s have to be 11 characters
     /// long
-    #[error("A VideoId has to be 11 characters long but was {0} long")]
-    InvalidLength(usize),
-}
-
-impl From<crate::id::Error> for IdError {
-    fn from(val: crate::id::Error) -> Self {
-        let crate::id::Error { expected: _, found } = val;
-        IdError::InvalidLength(found)
-    }
+    #[error(transparent)]
+    InvalidLength(#[from] crate::id::Error),
 }
 
 impl std::str::FromStr for Id {
@@ -298,7 +291,7 @@ impl std::fmt::Display for Id {
 mod test {
     use crate::video::Ratings;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn get() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::client::Client::new().await?;
 
@@ -376,7 +369,7 @@ mod test {
         Ok(())
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn unlisted() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::client::Client::new().await?;
 
@@ -421,7 +414,7 @@ mod test {
         Ok(())
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn age_restricted() -> Result<(), Box<dyn std::error::Error>> {
         let client = crate::client::Client::new().await?;
 

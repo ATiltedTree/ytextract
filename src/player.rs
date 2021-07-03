@@ -1,13 +1,7 @@
 //! A YouTube Player associated with a video
 
-use once_cell::sync::Lazy;
+use lazy_regex::regex_captures;
 use regex::Regex;
-
-static STATEMENT_EXP: Lazy<Regex> = Lazy::new(|| Regex::new(r"\w+\.(\w+)\(\w+,(\w+)\)").unwrap());
-static DECIPHER_EXP: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"\w+=function\(\w+\)\{\w+=\w+\.split\(""\);(.*)?return\s+\w+\.join\(""\)\};"#)
-        .unwrap()
-});
 
 macro_rules! cipher {
     ($name:ident) => {
@@ -58,15 +52,16 @@ impl Player {
     pub async fn from_url(http: &reqwest::Client, url: &str) -> Result<Self, Error> {
         let url = format!("https://youtube.com{}", url);
         log::trace!("Getting CipherPlan[{}]", url);
-        let response = http
+        let body = http
             .get(&url)
             .send()
             .await
             .map_err(Error::PlayerNotFound)?
             .error_for_status()
+            .map_err(Error::PlayerNotFound)?
+            .text()
+            .await
             .map_err(Error::PlayerNotFound)?;
-
-        let body = response.text().await.map_err(Error::PlayerNotFound)?;
 
         log::trace!("Got CipherPlan[{}]", url);
 
@@ -93,37 +88,27 @@ impl CipherPlan {
         log::trace!("Deciphering: '{:?}'", signature);
 
         for cipher in &self.ciphers {
-            cipher.decipher(&mut signature)
+            cipher.decipher(&mut signature);
         }
 
         log::trace!("Deciphered: '{:?}'", signature);
 
-        match String::from_utf8(signature) {
-            Ok(signature) => signature,
-            Err(err) => {
-                panic!(
-                    "\nThe result of a deciphering operation was invalid UTF-8. This is \
-                    unrecoverable and should be reported.\nError: {}\n",
-                    err
-                )
-            }
-        }
+        String::from_utf8(signature).expect("Chipher result is invalid UTF-8")
     }
 
     fn from_body(body: &str) -> Result<Self, Error> {
-        let decipher_body = &DECIPHER_EXP
-            .captures(body)
-            .ok_or(Error::CipherPlanNotFound)?[1];
+        let (_, decipher_body) = regex_captures!(
+            r#"\w+=function\(\w+\)\{\w+=\w+\.split\(""\);(.*)?return\s+\w+\.join\(""\)\};"#,
+            body
+        )
+        .ok_or(Error::CipherPlanNotFound)?;
 
         let ciphers: Vec<Box<dyn Cipher>> = decipher_body
             .split(';')
             .filter(|s| !s.is_empty())
             .map(|s| -> Result<Box<dyn Cipher>, Error> {
-                let cap = STATEMENT_EXP
-                    .captures(s)
+                let (_, function_name, arg) = regex_captures!(r"\w+\.(\w+)\(\w+,(\w+)\)", s)
                     .ok_or_else(|| Error::Statement(s.to_string()))?;
-                let function_name = &cap[1];
-                let arg = &cap[2];
 
                 let body_exp = Regex::new(&format!(
                     r"\b{}:function\([\w,]+\)\{{(.*?)\}}",

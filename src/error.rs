@@ -10,6 +10,10 @@ pub enum Error {
     #[error(transparent)]
     Video(#[from] crate::video::Error),
 
+    /// A Error that occurs when querying a [`Playlist`](crate::Playlist).
+    #[error(transparent)]
+    Playlist(#[from] crate::playlist::Error),
+
     /// A Error that occurred while parsing a [`Id`](crate::Id)
     #[error(transparent)]
     Id(#[from] crate::id::Error),

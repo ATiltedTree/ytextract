@@ -6,50 +6,19 @@ use crate::{
 use chrono::{DateTime, Utc};
 use reqwest::Url;
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 /// A [`Stream`](super::Stream) containing video or audio data.
-#[derive(Debug)]
 pub struct Stream {
     pub(super) format: CommonFormat,
     pub(super) client: Arc<Client>,
+    pub(super) url: Url,
 }
 
 impl Stream {
     /// The [`Url`] of a [`Stream`]
-    pub async fn url(&self) -> crate::Result<Url> {
-        match &self.format.url {
-            Some(url) => Ok(url.clone()),
-            None => {
-                let signature_cipher = self
-                    .format
-                    .signature_cipher
-                    .as_ref()
-                    .expect("Stream did not have a URL or signatureCipher");
-                let root: HashMap<String, String> =
-                    serde_urlencoded::from_str(signature_cipher.as_str())
-                        .expect("signatureCipher was not urlencoded");
-
-                let signature = self.client.player().await.cipher().run(root["s"].clone());
-                let signature_arg = &root["sp"];
-                let mut url = Url::parse(&root["url"])
-                    .expect("signatureCipher url attribute was not a valid URL");
-
-                let query = url
-                    .query()
-                    .map(|q| format!("{}&{}={}", q, signature_arg, signature));
-
-                if let Some(query) = query {
-                    url.set_query(Some(&query));
-                } else {
-                    panic!(
-                        "URL('{}') did not have a query while trying to add '{}={}'",
-                        url, signature_arg, signature
-                    );
-                }
-                Ok(url)
-            }
-        }
+    pub fn url(&self) -> Url {
+        self.url.clone()
     }
 
     /// The length of a [`Stream`] in bytes
@@ -60,7 +29,7 @@ impl Stream {
             let res = self
                 .client
                 .client
-                .head(self.url().await?)
+                .head(self.url())
                 .send()
                 .await?
                 .error_for_status()?;
@@ -78,7 +47,7 @@ impl Stream {
         Ok(self
             .client
             .client
-            .get(self.url().await?)
+            .get(self.url())
             .send()
             .await?
             .error_for_status()?
@@ -108,5 +77,23 @@ impl Stream {
     /// The [`Duration`] of a [`Stream`]
     pub fn duration(&self) -> Option<Duration> {
         self.format.duration
+    }
+
+    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct) {
+        debug
+            .field("url", &self.url)
+            .field("quality", &self.quality())
+            .field("mime_type", &self.mime_type())
+            .field("last_modified", &self.last_modified())
+            .field("bitrate", &self.bitrate())
+            .field("duration", &self.duration());
+    }
+}
+
+impl std::fmt::Debug for Stream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("CommonStream");
+        self.debug(&mut debug);
+        debug.finish()
     }
 }

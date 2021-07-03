@@ -11,19 +11,25 @@ pub(crate) fn validate_char(c: char) -> bool {
 /// A Youtube Id, associated with various things.
 ///
 /// Like [`String`], the contents  have to be valid UTF-8 at all times.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Id<const N: usize> {
     data: [u8; N],
 }
 
-impl<const N: usize> std::fmt::Display for Id<N> {
+impl<const N: usize> std::fmt::Debug for Id<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&*self)
     }
 }
 
+impl<const N: usize> std::fmt::Display for Id<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
 #[derive(thiserror::Error, Debug, Clone, Copy)]
-#[error("Expected a string of length {expected} but found a string of length {found}")]
+#[error("Expected a id of length {expected} but found a string of length {found}")]
 pub struct Error {
     pub(crate) expected: usize,
     pub(crate) found: usize,

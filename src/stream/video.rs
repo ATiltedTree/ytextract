@@ -1,7 +1,6 @@
 use crate::youtube::player_response::VideoFormat;
 
 /// A [`Stream`](super::Stream) specifically containing video data.
-#[derive(Debug)]
 pub struct Stream {
     pub(super) common: super::common::Stream,
     pub(super) video: VideoFormat,
@@ -29,5 +28,20 @@ impl Stream {
     /// The frames per second of a [`Stream`]
     pub fn fps(&self) -> u64 {
         self.video.fps
+    }
+
+    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct) {
+        debug
+            .field("width", &self.width())
+            .field("height", &self.height())
+            .field("fps", &self.fps());
+    }
+}
+
+impl std::fmt::Debug for Stream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("VideoStream");
+        self.debug(&mut debug);
+        debug.finish()
     }
 }

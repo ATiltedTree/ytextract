@@ -9,6 +9,7 @@ pub struct Root {
     pub contents: Option<Contents>,
     pub microformat: Option<Microformat>,
     pub alerts: Option<(Alert,)>,
+    pub sidebar: Option<Sidebar>,
 }
 
 impl Root {
@@ -89,11 +90,13 @@ pub struct Content3 {
     pub playlist_video_list_renderer: PlaylistVideoListRenderer,
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistVideoListRenderer {
     pub contents: Vec<PlaylistItem>,
-    pub playlist_id: String,
+    #[serde_as(as = "serde_with::DisplayFromStr")]
+    pub playlist_id: crate::playlist::Id,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -190,10 +193,10 @@ pub struct Microformat {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MicroformatDataRenderer {
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub thumbnail: Option<Thumbnails>,
-    pub unlisted: Option<bool>,
+    pub title: String,
+    pub description: String,
+    pub thumbnail: Thumbnails,
+    pub unlisted: bool,
 }
 ////////////////////////////////////////////////////////////////////////////////
 #[derive(Debug, Deserialize, Clone)]
@@ -221,5 +224,103 @@ impl std::error::Error for AlertRenderer {}
 impl std::fmt::Display for AlertRenderer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.text.runs.0.text)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Sidebar {
+    pub playlist_sidebar_renderer: PlaylistSidebarRenderer,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistSidebarRenderer {
+    pub items: Vec<PlaylistSidebarItem>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum PlaylistSidebarItem {
+    PlaylistSidebarPrimaryInfoRenderer(PlaylistSidebarPrimaryInfoRenderer),
+    PlaylistSidebarSecondaryInfoRenderer(PlaylistSidebarSecondaryInfoRenderer),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistSidebarPrimaryInfoRenderer {
+    pub stats: (VideoStats, ViewsStats, DateStats),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoStats {
+    pub runs: (TitleRun, TitleRun),
+}
+
+impl VideoStats {
+    pub fn as_number(&self) -> u64 {
+        self.runs
+            .0
+            .text
+            .parse()
+            .expect("VideoStats text was not a number")
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewsStats {
+    pub simple_text: String,
+}
+
+impl ViewsStats {
+    pub fn as_number(&self) -> u64 {
+        let (number, _) = self
+            .simple_text
+            .split_once(' ')
+            .expect("No space in ViewsStats text");
+        number
+            .parse()
+            .expect("ViewsStats text did not contain a number")
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DateStats {}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistSidebarSecondaryInfoRenderer {
+    pub video_owner: VideoOwner,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoOwner {
+    pub video_owner_renderer: VideoOwnerRenderer,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoOwnerRenderer {
+    pub title: Runs<BylineRun>,
+}
+
+impl VideoOwnerRenderer {
+    pub fn name(&self) -> &str {
+        &self.title.runs.0.text
+    }
+
+    pub fn id(&self) -> crate::channel::Id {
+        self.title
+            .runs
+            .0
+            .navigation_endpoint
+            .browse_endpoint
+            .browse_id
     }
 }

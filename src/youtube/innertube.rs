@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use once_cell::sync::Lazy;
 use reqwest::IntoUrl;
 use serde::Serialize;
@@ -17,8 +19,20 @@ static CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
     })
 });
 
+pub enum ChannelPage {
+    About,
+    Videos,
+    Playlists,
+    Channels,
+    Community,
+}
+
 pub enum Browse {
     Playlist(crate::playlist::Id),
+    Channel {
+        id: crate::channel::Id,
+        page: ChannelPage,
+    },
 }
 
 #[derive(Debug)]
@@ -92,15 +106,25 @@ impl Api {
             context: &'a serde_json::Value,
             browse_id: String,
             #[serde(skip_serializing_if = "Option::is_none")]
-            params: Option<&'a str>,
+            params: Option<String>,
         }
 
         let request = match browse {
             Browse::Playlist(id) => Request {
                 context: &CONTEXT,
                 browse_id: format!("VL{}", id),
-                // ?!?!?!!?!?!?!!?!?!
-                params: Some("wgYCCAA%3D"),
+                params: Some(base64::encode([0xc2, 0x06, 0x02, 0x08, 0x00])),
+            },
+            Browse::Channel { id, page } => Request {
+                context: &CONTEXT,
+                browse_id: format!("{}", id),
+                params: match page {
+                    ChannelPage::About => Some(base64::encode(b"about")),
+                    ChannelPage::Videos => Some(base64::encode(b"videos")),
+                    ChannelPage::Playlists => Some(base64::encode(b"playlists")),
+                    ChannelPage::Channels => Some(base64::encode(b"channels")),
+                    ChannelPage::Community => Some(base64::encode(b"community")),
+                },
             },
         };
 
@@ -124,5 +148,48 @@ impl Api {
         };
 
         self.get(format!("{}/browse", BASE_URL), request).await
+    }
+
+    pub async fn get_video_info(&self, id: crate::video::Id) -> crate::Result<PlayerResponse> {
+        static URL: &str = "https://youtube.com/get_video_info";
+
+        #[serde_with::serde_as]
+        #[derive(Serialize, Debug)]
+        struct Query<'a> {
+            #[serde_as(as = "serde_with::DisplayFromStr")]
+            video_id: crate::video::Id,
+            el: &'a str,
+            eurl: String,
+            hl: &'a str,
+            html5: usize,
+            c: &'a str,
+            cver: &'a str,
+        }
+
+        let query = Query {
+            video_id: id,
+            el: "embedded",
+            eurl: format!("https://youtube.googleapis.com/v/{}", id),
+            hl: "en",
+            html5: 1,
+            c: "TVHTML5",
+            cver: "6.20180913",
+        };
+
+        let response = self
+            .http
+            .get(URL)
+            .query(&query)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        Ok(serde_json::from_str(
+            &serde_urlencoded::from_str::<HashMap<String, String>>(&response)
+                .expect("VideoInfo response was invalid urlencoded")["player_response"],
+        )
+        .expect("get_video_info player_response was invalid json"))
     }
 }

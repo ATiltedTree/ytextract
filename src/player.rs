@@ -143,7 +143,7 @@ impl CipherPlan {
 }
 
 /// A JS Cipher implemented in Rust
-trait Cipher: std::fmt::Debug {
+trait Cipher: std::fmt::Debug + Sync + Send {
     /// Deciphers the input according to the JS function
     fn decipher(&self, input: &mut Vec<u8>);
 }

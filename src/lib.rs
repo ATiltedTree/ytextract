@@ -3,7 +3,7 @@
 //! # Basic Example
 //!
 //! ```rust
-//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Get a Client for making request
 //! let client = ytextract::Client::new().await?;
 //!

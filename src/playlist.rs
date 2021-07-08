@@ -1,7 +1,5 @@
 //! Playlists
 
-#[cfg(test)]
-mod test;
 pub mod video;
 
 pub use self::video::Video;
@@ -9,7 +7,16 @@ pub use self::video::Video;
 use std::sync::Arc;
 
 use crate::{
-    youtube::{browse, innertube::Browse},
+    youtube::{
+        browse::{
+            self,
+            playlist::{
+                PlaylistSidebarItem, PlaylistSidebarPrimaryInfoRenderer,
+                PlaylistSidebarSecondaryInfoRenderer,
+            },
+        },
+        innertube::Browse,
+    },
     Thumbnail,
 };
 
@@ -20,28 +27,14 @@ pub enum Error {
     /// A [`Playlist`] encountered an alert
     #[error("Playlist with id '{0}' encountered alert: '{alert}'")]
     Alert {
-        /// The [`Id`] identifying the invalid [`Playlist`]
-        id: Id,
         #[doc(hidden)]
         alert: browse::playlist::AlertRenderer,
     },
 }
 
 /// A [`Id`](crate::Id) describing a Playlist.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Id {
-    /// A regular playlist with a `34` character [`Id`]
-    Normal(crate::Id<34>),
-
-    /// `WL`
-    WatchLater,
-
-    /// `RDMM`
-    MyMix,
-
-    /// `LL`
-    LikedVideos,
-}
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Id(String);
 
 /// The [`Error`](std::error::Error) produced when a invalid [`Id`] is
 /// encountered
@@ -70,6 +63,7 @@ impl std::str::FromStr for Id {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         const PREFIXES: &[&str] = &["https://www.youtube.com/playlist?list="];
+        const ID_PREFIXES: &[&str] = &["PL", "RD", "UL", "UU", "PU", "OL", "LL", "FL", "WL"];
 
         let id = PREFIXES
             .iter()
@@ -78,13 +72,10 @@ impl std::str::FromStr for Id {
             // correctness will be checked later.
             .unwrap_or(s);
 
-        if id.chars().all(crate::id::validate_char) {
-            match id {
-                "WL" => Ok(Self::WatchLater),
-                "RDMM" => Ok(Self::MyMix),
-                "LL" => Ok(Self::LikedVideos),
-                _ => Ok(Self::Normal(id.parse()?)),
-            }
+        if id.chars().all(crate::id::validate_char)
+            && ID_PREFIXES.iter().any(|prefix| id.starts_with(prefix))
+        {
+            Ok(Id(s.to_string()))
         } else {
             Err(IdError::InvalidId(s.to_string()))
         }
@@ -93,12 +84,7 @@ impl std::str::FromStr for Id {
 
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Id::Normal(id) => id.fmt(f),
-            Id::WatchLater => f.write_str("WL"),
-            Id::MyMix => f.write_str("RDMM"),
-            Id::LikedVideos => f.write_str("LL"),
-        }
+        self.0.fmt(f)
     }
 }
 
@@ -114,7 +100,6 @@ impl Playlist {
         if let Some((alert,)) = &response.alerts {
             if &alert.alert_renderer.r#type == "ERROR" {
                 return Err(crate::Error::Playlist(Error::Alert {
-                    id,
                     alert: alert.alert_renderer.clone(),
                 }));
             }
@@ -132,32 +117,106 @@ impl Playlist {
             .microformat_data_renderer
     }
 
+    fn primary_sidebar(&self) -> &PlaylistSidebarPrimaryInfoRenderer {
+        self.response
+            .sidebar
+            .as_ref()
+            .expect("No sidebar")
+            .playlist_sidebar_renderer
+            .items
+            .iter()
+            .find_map(|x| {
+                if let PlaylistSidebarItem::PlaylistSidebarPrimaryInfoRenderer(x) = x {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .as_ref()
+            .expect("No Primary sidebar")
+    }
+
+    fn secondary_sidebar(&self) -> Option<&PlaylistSidebarSecondaryInfoRenderer> {
+        self.response
+            .sidebar
+            .as_ref()
+            .expect("No sidebar")
+            .playlist_sidebar_renderer
+            .items
+            .iter()
+            .find_map(|x| {
+                if let PlaylistSidebarItem::PlaylistSidebarSecondaryInfoRenderer(x) = x {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// The [`Id`] of a playlist
+    pub fn id(&self) -> Id {
+        self.response
+            .contents
+            .as_ref()
+            .expect("No content")
+            .two_column_browse_results_renderer
+            .tabs
+            .0
+            .tab_renderer
+            .content
+            .section_list_renderer
+            .contents
+            .0
+            .item_section_renderer
+            .contents
+            .0
+            .playlist_video_list_renderer
+            .playlist_id
+            .clone()
+    }
+
     /// The title of a playlist.
     pub fn title(&self) -> &str {
-        self.microformat().title.as_ref().expect("Title is missing")
+        &self.microformat().title
     }
 
     /// The description of a playlist.
     pub fn description(&self) -> &str {
-        self.microformat()
-            .description
+        &self.microformat().description
+    }
+
+    /// The name of the author of this playlist
+    pub fn author(&self) -> Option<&str> {
+        self.secondary_sidebar()
             .as_ref()
-            .expect("Description is missing")
+            .map(|x| x.video_owner.video_owner_renderer.name())
+    }
+
+    /// The id of the author's channel of this playlist
+    pub fn channel_id(&self) -> Option<crate::channel::Id> {
+        self.secondary_sidebar()
+            .as_ref()
+            .map(|x| x.video_owner.video_owner_renderer.id())
     }
 
     /// Is this playlist unlisted?
     pub fn unlisted(&self) -> bool {
-        self.microformat().unlisted.expect("Unlisted is missing")
+        self.microformat().unlisted
     }
 
     /// The [`Thumbnails`](Thumbnail) of a playlist.
     pub fn thumbnails(&self) -> &Vec<Thumbnail> {
-        &self
-            .microformat()
-            .thumbnail
-            .as_ref()
-            .expect("Thumbnails are missing")
-            .thumbnails
+        &self.microformat().thumbnail.thumbnails
+    }
+
+    /// The amount of views of a playlist
+    pub fn views(&self) -> u64 {
+        self.primary_sidebar().stats.1.as_number()
+    }
+
+    /// The amount of videos in a playlist
+    pub fn length(&self) -> u64 {
+        self.primary_sidebar().stats.0.as_number()
     }
 
     /// The [`Videos`](Video) of a playlist.

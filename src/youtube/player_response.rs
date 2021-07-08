@@ -124,7 +124,6 @@ pub struct VideoFormat {
     pub width: u64,
     pub height: u64,
     pub fps: u64,
-    pub color_info: Option<ColorInfo>,
     pub quality_label: String,
 }
 
@@ -137,54 +136,6 @@ pub struct AudioFormat {
     pub audio_sample_rate: u64,
     pub audio_quality: String,
     pub audio_channels: u64,
-}
-
-#[serde_with::serde_as]
-#[derive(Debug, serde::Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ColorInfo {
-    #[serde_as(as = "Option<serde_with::DisplayFromStr>")]
-    #[serde(default)]
-    pub matrix_coefficients: Option<ColorType>,
-
-    #[serde_as(as = "Option<serde_with::DisplayFromStr>")]
-    #[serde(default)]
-    pub primaries: Option<ColorType>,
-
-    #[serde_as(as = "serde_with::DisplayFromStr")]
-    pub transfer_characteristics: ColorType,
-}
-
-#[derive(Debug, Clone)]
-pub enum ColorType {
-    /// [BT709](https://en.wikipedia.org/wiki/Rec._709) color space
-    BT709,
-}
-
-/// A Error that can occur during [`ColorType`] parsing
-#[derive(Debug, thiserror::Error)]
-#[error("Unknown ColorType '{0}'")]
-pub struct ColorTypeError(String);
-
-impl std::str::FromStr for ColorType {
-    type Err = ColorTypeError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        const PREFIXES: &[&str] = &[
-            "COLOR_MATRIX_COEFFICIENTS_",
-            "COLOR_PRIMARIES_",
-            "COLOR_TRANSFER_CHARACTERISTICS_",
-        ];
-        let ty = PREFIXES
-            .iter()
-            .find_map(|pr| s.strip_prefix(pr))
-            .ok_or_else(|| ColorTypeError(s.to_string()))?;
-
-        Ok(match ty {
-            "BT709" => ColorType::BT709,
-            _ => return Err(ColorTypeError(ty.to_string())),
-        })
-    }
 }
 
 #[serde_with::serde_as]

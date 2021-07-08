@@ -3,7 +3,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let client = ytextract::Client::new().await?;
 //!
 //! let video = client.video("nI2e-J6fsuk".parse()?).await?;
@@ -42,7 +42,7 @@ pub enum Error {
 /// # Example
 ///
 /// ```rust
-/// # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let client = ytextract::Client::new().await?;
 ///
 /// let video = client.video("nI2e-J6fsuk".parse()?).await?;
@@ -284,178 +284,5 @@ impl std::str::FromStr for Id {
 impl std::fmt::Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::video::Ratings;
-
-    #[tokio::test]
-    async fn get() -> Result<(), Box<dyn std::error::Error>> {
-        let client = crate::client::Client::new().await?;
-
-        let video = client
-            .video("https://www.youtube.com/watch?v=7B2PIVSWtJA".parse()?)
-            .await?;
-
-        assert_eq!(
-            video.title(),
-            "I Sent Corridor Digital the WORST VFX Workstation"
-        );
-
-        assert_eq!(video.id(), "7B2PIVSWtJA".parse()?);
-        assert_eq!(video.duration(), std::time::Duration::from_secs(1358));
-        assert_eq!(
-            video.keywords(),
-            &vec![
-                "photoshop",
-                "adobe",
-                "1.0",
-                "macintosh",
-                "apple",
-                "lc",
-                "475",
-                "quadra",
-                "performa",
-                "classic",
-                "system 7.5",
-                "macos",
-                "ossc",
-                "vga",
-                "vfx",
-                "editing",
-                "challenge",
-                "corridor digital",
-                "collab",
-                "ftp",
-                "fetch",
-                "icab",
-                "marathon",
-                "oregon trail",
-                "nightmare fuel",
-                "scsi2sd"
-            ]
-        );
-        assert_eq!(video.channel_id(), "UCXuqSBlHAE6Xw-yeJA0Tunw".parse()?);
-        assert_eq!(video.author(), "Linus Tech Tips");
-        assert!(!video.description().is_empty());
-        assert!(video.views() >= 1_068_917);
-
-        let ratings = video.ratings();
-        if let Ratings::Allowed { likes, dislikes } = ratings {
-            assert!(likes >= 51_745);
-            assert!(dislikes >= 622);
-        } else {
-            unreachable!();
-        }
-
-        assert!(!video.private());
-        assert!(!video.live());
-        assert!(!video.thumbnails().is_empty());
-        assert!(!video.age_restricted());
-        assert!(!video.unlisted());
-        assert!(video.family_safe());
-        assert_eq!(video.category(), "Science & Technology");
-        assert_eq!(
-            video.publish_date(),
-            chrono::NaiveDate::from_ymd(2021, 4, 14)
-        );
-        assert_eq!(
-            video.upload_date(),
-            chrono::NaiveDate::from_ymd(2021, 4, 14)
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn unlisted() -> Result<(), Box<dyn std::error::Error>> {
-        let client = crate::client::Client::new().await?;
-
-        let video = client
-            .video("https://www.youtube.com/watch?v=9Jg_Fwc0QOY".parse()?)
-            .await?;
-
-        assert_eq!(video.title(), "youtube_explode_dart test");
-
-        assert_eq!(video.id(), "9Jg_Fwc0QOY".parse()?);
-        assert_eq!(video.duration(), std::time::Duration::from_secs(10));
-        assert_eq!(video.keywords(), &Vec::<String>::new());
-        assert_eq!(video.channel_id(), "UCZqdX9k5eyv1aO7i2746bXg".parse()?);
-        assert_eq!(video.author(), "ATiltedTree");
-        assert!(!video.description().is_empty());
-        assert!(video.views() >= 6);
-
-        let ratings = video.ratings();
-        if let Ratings::Allowed { likes, dislikes } = ratings {
-            assert!(likes == 0);
-            assert!(dislikes == 0);
-        } else {
-            unreachable!();
-        }
-
-        assert!(!video.private());
-        assert!(!video.live());
-        assert!(!video.thumbnails().is_empty());
-        assert!(!video.age_restricted());
-        assert!(video.unlisted());
-        assert!(video.family_safe());
-        assert_eq!(video.category(), "Science & Technology");
-        assert_eq!(
-            video.publish_date(),
-            chrono::NaiveDate::from_ymd(2021, 3, 14)
-        );
-        assert_eq!(
-            video.upload_date(),
-            chrono::NaiveDate::from_ymd(2021, 3, 14)
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn age_restricted() -> Result<(), Box<dyn std::error::Error>> {
-        let client = crate::client::Client::new().await?;
-
-        let video = client
-            .video("https://www.youtube.com/watch?v=uc8BltmHWww".parse()?)
-            .await?;
-
-        assert_eq!(video.title(), "LoL emoticonos version nopor");
-
-        assert_eq!(video.id(), "uc8BltmHWww".parse()?);
-        assert_eq!(video.duration(), std::time::Duration::from_secs(110));
-        assert_eq!(video.keywords(), &Vec::<String>::new());
-        assert_eq!(video.channel_id(), "UCNsCnSYsc6RT9LNxysuEwNg".parse()?);
-        assert_eq!(video.author(), "lol mas18");
-        assert!(!video.description().is_empty());
-        assert!(video.views() >= 245_175);
-
-        let ratings = video.ratings();
-        if let Ratings::Allowed { likes, dislikes } = ratings {
-            assert!(likes >= 2_724);
-            assert!(dislikes >= 164);
-        } else {
-            unreachable!();
-        }
-
-        assert!(!video.private());
-        assert!(!video.live());
-        assert!(!video.thumbnails().is_empty());
-        assert!(video.age_restricted());
-        assert!(!video.unlisted());
-        assert!(!video.family_safe());
-        assert_eq!(video.category(), "People & Blogs");
-        assert_eq!(
-            video.publish_date(),
-            chrono::NaiveDate::from_ymd(2019, 10, 8)
-        );
-        assert_eq!(
-            video.upload_date(),
-            chrono::NaiveDate::from_ymd(2019, 10, 8)
-        );
-
-        Ok(())
     }
 }

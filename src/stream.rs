@@ -3,7 +3,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let client = ytextract::Client::new().await?;
 //!
 //! let streams = client.streams("nI2e-J6fsuk".parse()?).await?;
@@ -25,10 +25,7 @@ pub use self::common::Stream as Common;
 pub use self::video::Stream as Video;
 pub use crate::youtube::player_response::Quality;
 use crate::{
-    youtube::{
-        player_response::{FormatType, PlayabilityErrorCode, StreamingData},
-        video_info::VideoInfo,
-    },
+    youtube::player_response::{FormatType, PlayabilityErrorCode, StreamingData},
     Client,
 };
 use reqwest::Url;
@@ -57,26 +54,27 @@ pub(crate) async fn get(
     streaming_data: Option<StreamingData>,
 ) -> crate::Result<impl Iterator<Item = Stream>> {
     let streaming_data = if let Some(streaming_data) = streaming_data {
-        Ok(streaming_data)
+        streaming_data
     } else {
-        let video_info = VideoInfo::from_id(&client.client, id).await?;
+        let response = match client.api.player(id).await {
+            Ok(response) if response.playability_status.status.is_stream_recoverable() => response,
+            _ => {
+                let response = client.api.get_video_info(id).await?;
+                if response.playability_status.status.is_stream_recoverable() {
+                    response
+                } else {
+                    return Err(crate::Error::Stream(Error::Unplayable {
+                        code: response.playability_status.status,
+                        reason: response.playability_status.reason,
+                    }));
+                }
+            }
+        };
 
-        let player_response = video_info.player_response();
-        if player_response
-            .playability_status
-            .status
-            .is_stream_recoverable()
-        {
-            Ok(player_response
-                .streaming_data
-                .expect("Recoverable error did not contain streaming data"))
-        } else {
-            Err(Error::Unplayable {
-                code: player_response.playability_status.status,
-                reason: player_response.playability_status.reason,
-            })
-        }
-    }?;
+        response
+            .streaming_data
+            .expect("Recoverable error did not contain streaming data")
+    };
 
     // FIXME: DashManifest/HlsManifest
     Ok(streaming_data
@@ -186,35 +184,6 @@ impl std::fmt::Debug for Stream {
             }
         }
         debug.finish()?;
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    #[tokio::test]
-    async fn get() -> Result<(), Box<dyn std::error::Error>> {
-        let client = crate::Client::new().await?;
-
-        let mut streams = client
-            .streams("https://www.youtube.com/watch?v=7B2PIVSWtJA".parse()?)
-            .await?;
-
-        assert!(streams.next().is_some());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn age_restricted() -> Result<(), Box<dyn std::error::Error>> {
-        let client = crate::Client::new().await?;
-
-        let mut streams = client
-            .streams("https://www.youtube.com/watch?v=9Jg_Fwc0QOY".parse()?)
-            .await?;
-
-        assert!(streams.next().is_some());
 
         Ok(())
     }

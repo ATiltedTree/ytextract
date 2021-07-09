@@ -76,6 +76,15 @@ pub(crate) async fn get(
             .expect("Recoverable error did not contain streaming data")
     };
 
+    let needs_player = streaming_data
+        .adaptive_formats
+        .iter()
+        .any(|f| f.base.url.is_none());
+
+    if needs_player {
+        client.init_player().await;
+    }
+
     // FIXME: DashManifest/HlsManifest
     Ok(streaming_data
         .adaptive_formats
@@ -131,7 +140,7 @@ impl Stream {
                     serde_urlencoded::from_str(signature_cipher.as_str())
                         .expect("signatureCipher was not urlencoded");
 
-                let signature = client.player.cipher().run(root["s"].clone());
+                let signature = client.player().cipher().run(root["s"].clone());
                 let signature_arg = &root["sp"];
                 let mut url = Url::parse(&root["url"])
                     .expect("signatureCipher url attribute was not a valid URL");

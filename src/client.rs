@@ -1,3 +1,5 @@
+use once_cell::sync::OnceCell;
+
 use crate::{
     player::Player,
     playlist, stream,
@@ -11,8 +13,8 @@ use std::sync::Arc;
 /// A Client capable of interacting with YouTube
 #[derive(Debug)]
 pub struct Client {
-    pub(crate) client: reqwest::Client,
-    pub(crate) player: Player,
+    pub(crate) http: reqwest::Client,
+    pub(crate) player: OnceCell<Player>,
     pub(crate) api: Api,
 }
 
@@ -20,27 +22,39 @@ impl Client {
     /// Create a new [`Client`]
     pub async fn new() -> crate::Result<Arc<Self>> {
         let http = reqwest::Client::new();
-        let home = http
+        let body = http
             .get("https://youtube.com/?hl=en")
             .send()
             .await?
-            .error_for_status()?;
-
-        let body = home.text().await?;
+            .error_for_status()?
+            .text()
+            .await?;
 
         let (_, ytcfg) = lazy_regex::regex_captures!(r"\nytcfg.set\((\{.*\})\);", &body)
             .expect("YoutubeConfig was unable to be found");
         let ytcfg: YtCfg = serde_json::from_str(ytcfg).expect("YoutubeConfig was not valid json");
 
-        let player = Player::from_url(&http, &ytcfg.player_js_url)
-            .await
-            .expect("Unable to parse player");
-
         Ok(Arc::new(Client {
-            player,
+            player: OnceCell::new(),
             api: Api::new(http.clone(), ytcfg),
-            client: http,
+            http,
         }))
+    }
+
+    pub(crate) async fn init_player(&self) {
+        if self.player.get().is_none() {
+            let player = Player::from_url(&self.http, &self.api.ytcfg.player_js_url)
+                .await
+                .expect("Unable to parse player");
+
+            if self.player.set(player).is_err() {
+                log::warn!("Reinitialized player. Oh well...");
+            }
+        }
+    }
+
+    pub(crate) fn player(&self) -> &Player {
+        self.player.get().expect("Player not initialized!")
     }
 
     /// Get a [`Video`] identified by a [`Id`](video::Id)

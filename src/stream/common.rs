@@ -28,7 +28,7 @@ impl Stream {
         } else {
             let res = self
                 .client
-                .client
+                .http
                 .head(self.url())
                 .send()
                 .await?
@@ -46,7 +46,7 @@ impl Stream {
     ) -> crate::Result<impl futures_core::Stream<Item = Result<bytes::Bytes, reqwest::Error>>> {
         Ok(self
             .client
-            .client
+            .http
             .get(self.url())
             .send()
             .await?

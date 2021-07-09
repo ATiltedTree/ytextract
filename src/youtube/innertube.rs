@@ -37,7 +37,7 @@ pub enum Browse {
 
 #[derive(Debug)]
 pub struct Api {
-    ytcfg: YtCfg,
+    pub(crate) ytcfg: YtCfg,
     http: reqwest::Client,
 }
 

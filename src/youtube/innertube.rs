@@ -4,9 +4,14 @@ use once_cell::sync::Lazy;
 use reqwest::IntoUrl;
 use serde::Serialize;
 
-use crate::youtube::{player_response::PlayerResponse, ytcfg::YtCfg};
+use crate::youtube::{
+    player_response,
+    tv_config::{Config, TvConfig},
+};
 
-static BASE_URL: &str = "https://youtubei.googleapis.com/youtubei/v1";
+const BASE_URL: &str = "https://youtubei.googleapis.com/youtubei/v1";
+
+const TV_CONFIG_URL: &str = "https://www.youtube.com/tv_config?action_get_config=true";
 
 static CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
     serde_json::json!({
@@ -21,7 +26,6 @@ static CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
 
 pub enum ChannelPage {
     About,
-    Videos,
     Playlists,
     Channels,
     Community,
@@ -37,13 +41,33 @@ pub enum Browse {
 
 #[derive(Debug)]
 pub struct Api {
-    pub(crate) ytcfg: YtCfg,
+    pub(crate) config: Config,
     http: reqwest::Client,
 }
 
 impl Api {
-    pub fn new(http: reqwest::Client, ytcfg: YtCfg) -> Self {
-        Self { ytcfg, http }
+    pub async fn new(http: reqwest::Client) -> crate::Result<Self> {
+        let tv_config = http
+            .get(TV_CONFIG_URL)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        let tv_config = tv_config
+            .lines()
+            .nth(1)
+            .expect("tv_config did not have a second line");
+
+        let tv_config: TvConfig =
+            serde_json::from_str(tv_config).expect("tv_config was invalid json");
+
+        Ok(Self {
+            config: tv_config
+                .web_player_context_config
+                .web_player_context_config_id_living_room_watch,
+            http,
+        })
     }
 
     async fn get<T: serde::de::DeserializeOwned>(
@@ -54,7 +78,7 @@ impl Api {
         Ok(self
             .http
             .post(url)
-            .query(&[("key", &self.ytcfg.innertube_api_key)])
+            .query(&[("key", &self.config.innertube_api_key)])
             .json(&request)
             .send()
             .await?
@@ -63,13 +87,11 @@ impl Api {
             .await?)
     }
 
-    pub async fn player(&self, id: crate::video::Id) -> crate::Result<PlayerResponse> {
-        #[serde_with::serde_as]
+    pub async fn player(&self, id: crate::video::Id) -> crate::Result<player_response::Result> {
         #[derive(Debug, Serialize)]
         #[serde(rename_all = "camelCase")]
         struct Request<'a> {
             context: &'a serde_json::Value,
-            #[serde_as(as = "serde_with::DisplayFromStr")]
             video_id: crate::video::Id,
         }
 
@@ -82,12 +104,10 @@ impl Api {
     }
 
     pub async fn next(&self, id: crate::video::Id) -> crate::Result<serde_json::Value> {
-        #[serde_with::serde_as]
         #[derive(Debug, Serialize)]
         #[serde(rename_all = "camelCase")]
         struct Request<'a> {
             context: &'a serde_json::Value,
-            #[serde_as(as = "serde_with::DisplayFromStr")]
             video_id: crate::video::Id,
         }
 
@@ -119,11 +139,10 @@ impl Api {
                 context: &CONTEXT,
                 browse_id: format!("{}", id),
                 params: match page {
-                    ChannelPage::About => Some(base64::encode(b"about")),
-                    ChannelPage::Videos => Some(base64::encode(b"videos")),
-                    ChannelPage::Playlists => Some(base64::encode(b"playlists")),
-                    ChannelPage::Channels => Some(base64::encode(b"channels")),
-                    ChannelPage::Community => Some(base64::encode(b"community")),
+                    ChannelPage::About => Some(base64::encode(b"\x12\x05about")),
+                    ChannelPage::Playlists => Some(base64::encode(b"\x12\x09playlists")),
+                    ChannelPage::Channels => Some(base64::encode(b"\x12\x08channels")),
+                    ChannelPage::Community => Some(base64::encode(b"\x12\x09community")),
                 },
             },
         };
@@ -150,16 +169,16 @@ impl Api {
         self.get(format!("{}/browse", BASE_URL), request).await
     }
 
-    pub async fn get_video_info(&self, id: crate::video::Id) -> crate::Result<PlayerResponse> {
+    pub async fn get_video_info(
+        &self,
+        id: crate::video::Id,
+    ) -> crate::Result<player_response::StreamResult> {
         static URL: &str = "https://youtube.com/get_video_info";
 
-        #[serde_with::serde_as]
         #[derive(Serialize, Debug)]
         struct Query<'a> {
-            #[serde_as(as = "serde_with::DisplayFromStr")]
             video_id: crate::video::Id,
             el: &'a str,
-            eurl: String,
             hl: &'a str,
             html5: usize,
             c: &'a str,
@@ -169,7 +188,6 @@ impl Api {
         let query = Query {
             video_id: id,
             el: "embedded",
-            eurl: format!("https://youtube.googleapis.com/v/{}", id),
             hl: "en",
             html5: 1,
             c: "TVHTML5",

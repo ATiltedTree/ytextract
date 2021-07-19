@@ -14,11 +14,9 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(playlist.id(), "PLCSusC_jlo15M6x0Ot8gznM-QA8CriNk4".parse()?);
     assert_eq!(playlist.title(), "V1");
     assert_eq!(playlist.description(), "A");
-    assert_eq!(playlist.author(), Some("ATiltedTree"));
-    assert_eq!(
-        playlist.channel_id(),
-        Some("UCZqdX9k5eyv1aO7i2746bXg".parse()?)
-    );
+    let channel = playlist.channel().expect("Channel missing");
+    assert_eq!(channel.name(), "ATiltedTree");
+    assert_eq!(channel.id(), "UCZqdX9k5eyv1aO7i2746bXg".parse()?);
     assert!(playlist.unlisted());
     assert!(!playlist.thumbnails().is_empty());
     assert!(playlist.views() >= 92);
@@ -47,10 +45,9 @@ mod metadata {
     }
 
     define_test!(normal, "PLI5YfMzCfRtZ8eV576YoY3vIYrHjyVm_e");
-    define_test!(mix, "RD1hu8-y6fKg0", ignore);
-    define_test!(my_mix, "RDMMU-ty-2B02VY", ignore);
-    define_test!(youtube_mix, "RDCLAK5uy_lf8okgl2ygD075nhnJVjlfhwp8NsUgEbs");
     define_test!(old, "PL601B2E69B03FAB9D");
+    define_test!(no_videos, "PL4lCao7KL_QFodcLWhDpGCYnngnHtQ-Xf");
+    define_test!(youtube_mix, "RDCLAK5uy_lf8okgl2ygD075nhnJVjlfhwp8NsUgEbs");
 }
 
 mod videos {
@@ -58,7 +55,8 @@ mod videos {
     use futures::stream::StreamExt;
 
     macro_rules! define_test {
-        ($fn:ident, $id:literal) => {
+        ($fn:ident, $id:literal, $($attr:meta)?) => {
+            $(#[$attr])?
             #[async_std::test]
             async fn $fn() -> Result<(), Box<dyn std::error::Error>> {
                 let id = $id.parse()?;
@@ -69,13 +67,16 @@ mod videos {
                 Ok(())
             }
         };
+        ($fn:ident, $id:literal) => {
+            define_test!($fn, $id,);
+        };
     }
 
     define_test!(normal, "PLI5YfMzCfRtZ8eV576YoY3vIYrHjyVm_e");
     define_test!(very_long, "PLWwAypAcFRgKFlxtLbn_u14zddtDJj3mk");
     define_test!(audio_book, "OLAK5uy_mtOdjCW76nDvf5yOzgcAVMYpJ5gcW5uKU");
-    define_test!(youtube_mix, "RDCLAK5uy_lf8okgl2ygD075nhnJVjlfhwp8NsUgEbs");
     define_test!(channel_uploads, "UUTMt7iMWa7jy0fNXIktwyLA");
     define_test!(song_album, "OLAK5uy_lLeonUugocG5J0EUAEDmbskX4emejKwcM");
     define_test!(old, "PL601B2E69B03FAB9D");
+    define_test!(youtube_mix, "RDCLAK5uy_lf8okgl2ygD075nhnJVjlfhwp8NsUgEbs");
 }

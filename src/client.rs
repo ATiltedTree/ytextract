@@ -1,11 +1,8 @@
 use once_cell::sync::OnceCell;
 
 use crate::{
-    player::Player,
-    playlist, stream,
-    video::{self, Video},
-    youtube::{innertube::Api, ytcfg::YtCfg},
-    Playlist, Stream,
+    channel, player::Player, playlist, stream, video, youtube::innertube::Api, Channel, Playlist,
+    Stream, Video,
 };
 
 use std::sync::Arc;
@@ -22,28 +19,16 @@ impl Client {
     /// Create a new [`Client`]
     pub async fn new() -> crate::Result<Arc<Self>> {
         let http = reqwest::Client::new();
-        let body = http
-            .get("https://youtube.com/?hl=en")
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-
-        let (_, ytcfg) = lazy_regex::regex_captures!(r"\nytcfg.set\((\{.*\})\);", &body)
-            .expect("YoutubeConfig was unable to be found");
-        let ytcfg: YtCfg = serde_json::from_str(ytcfg).expect("YoutubeConfig was not valid json");
-
         Ok(Arc::new(Client {
             player: OnceCell::new(),
-            api: Api::new(http.clone(), ytcfg),
+            api: Api::new(http.clone()).await?,
             http,
         }))
     }
 
     pub(crate) async fn init_player(&self) {
         if self.player.get().is_none() {
-            let player = Player::from_url(&self.http, &self.api.ytcfg.player_js_url)
+            let player = Player::from_url(&self.http, self.api.config.js_url())
                 .await
                 .expect("Unable to parse player");
 
@@ -73,5 +58,10 @@ impl Client {
     /// Get a [`Playlist`] identified by a [`Id`](playlist::Id)
     pub async fn playlist(self: &Arc<Self>, id: playlist::Id) -> crate::Result<Playlist> {
         Playlist::get(Arc::clone(self), id).await
+    }
+
+    /// Get a [`Channel`] identified by a [`Id`](channel::Id)
+    pub async fn channel(self: &Arc<Self>, id: channel::Id) -> crate::Result<Channel> {
+        Channel::get(Arc::clone(self), id).await
     }
 }

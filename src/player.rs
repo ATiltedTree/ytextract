@@ -1,7 +1,6 @@
 //! A YouTube Player associated with a video
 
-use lazy_regex::regex_captures;
-use regex::Regex;
+use lazy_regex::{regex_captures, Regex};
 
 macro_rules! cipher {
     ($name:ident) => {
@@ -40,7 +39,7 @@ pub enum Error {
     Statement(String),
 
     #[error("The player could not be found: '{0}'")]
-    PlayerNotFound(reqwest::Error),
+    PlayerNotFound(#[from] reqwest::Error),
 }
 
 #[derive(Debug)]
@@ -49,21 +48,14 @@ pub struct Player {
 }
 
 impl Player {
-    pub async fn from_url(http: &reqwest::Client, url: &str) -> Result<Self, Error> {
-        let url = format!("https://youtube.com{}", url);
-        log::trace!("Getting CipherPlan[{}]", url);
+    pub async fn from_url(http: &reqwest::Client, url: String) -> Result<Self, Error> {
         let body = http
-            .get(&url)
+            .get(url)
             .send()
-            .await
-            .map_err(Error::PlayerNotFound)?
-            .error_for_status()
-            .map_err(Error::PlayerNotFound)?
+            .await?
+            .error_for_status()?
             .text()
-            .await
-            .map_err(Error::PlayerNotFound)?;
-
-        log::trace!("Got CipherPlan[{}]", url);
+            .await?;
 
         Ok(Self {
             cipher_plan: CipherPlan::from_body(&body)?,
@@ -112,7 +104,7 @@ impl CipherPlan {
 
                 let body_exp = Regex::new(&format!(
                     r"\b{}:function\([\w,]+\)\{{(.*?)\}}",
-                    regex::escape(function_name)
+                    function_name
                 ))
                 .expect("Function regex was not parsable");
 

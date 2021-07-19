@@ -25,28 +25,11 @@ pub use self::common::Stream as Common;
 pub use self::video::Stream as Video;
 pub use crate::youtube::player_response::Quality;
 use crate::{
-    youtube::player_response::{FormatType, PlayabilityErrorCode, StreamingData},
+    youtube::player_response::{FormatType, StreamingData},
     Client,
 };
 use reqwest::Url;
 use std::{collections::HashMap, sync::Arc};
-
-/// A Error that can occur when working with [`Stream`]s
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    /// Unable to get the content-length of a [`Stream`]
-    #[error("Unable to get content-length")]
-    UnknownContentLength,
-
-    /// Streams are unplayable due to a YouTube error
-    #[error("{code:?}: '{reason:?}'")]
-    Unplayable {
-        /// The [`PlayabilityErrorCode`] returned by YouTube for processing
-        code: PlayabilityErrorCode,
-        /// The optional Human-readable reason for the error
-        reason: Option<String>,
-    },
-}
 
 pub(crate) async fn get(
     client: Arc<Client>,
@@ -56,24 +39,20 @@ pub(crate) async fn get(
     let streaming_data = if let Some(streaming_data) = streaming_data {
         streaming_data
     } else {
-        let response = match client.api.player(id).await {
-            Ok(response) if response.playability_status.status.is_stream_recoverable() => response,
-            _ => {
-                let response = client.api.get_video_info(id).await?;
-                if response.playability_status.status.is_stream_recoverable() {
-                    response
-                } else {
-                    return Err(crate::Error::Stream(Error::Unplayable {
-                        code: response.playability_status.status,
-                        reason: response.playability_status.reason,
-                    }));
-                }
-            }
+        let response = match client.api.player(id).await.unwrap().into_std() {
+            Ok(response) if response.is_streamable() => response.streaming_data,
+            _ => Some(
+                client
+                    .api
+                    .get_video_info(id)
+                    .await
+                    .unwrap()
+                    .into_std()
+                    .unwrap(),
+            ),
         };
 
-        response
-            .streaming_data
-            .expect("Recoverable error did not contain streaming data")
+        response.expect("Recoverable error did not contain streaming data")
     };
 
     let needs_player = streaming_data
@@ -85,7 +64,7 @@ pub(crate) async fn get(
         client.init_player().await;
     }
 
-    // FIXME: DashManifest/HlsManifest
+    // TODO: DashManifest/HlsManifest
     Ok(streaming_data
         .adaptive_formats
         .into_iter()

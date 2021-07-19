@@ -25,18 +25,15 @@ impl UnavailabilityReason {
 }
 
 /// A [`Error`](std::error::Error) that occurs when a [`Video`] in a
-/// [`Playlist`](super::Playlist) has an error
+/// [`Playlist`](super::Playlist) is unavailable
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
-pub enum Error {
-    /// A [`Video`] is unavailable
-    #[error("Video with id '{id}' is unavailable with reason: '{reason:?}'")]
-    Unavailable {
-        /// The [`Id`](crate::video::Id) of the unavailable [`Video`]
-        id: crate::video::Id,
-        /// The [`Reason`](UnavailabilityReason) why this [`Video`] is unavailable
-        reason: UnavailabilityReason,
-    },
+#[error("Video with id '{id}' is unavailable with reason: '{reason:?}'")]
+pub struct Error {
+    /// The [`Id`](crate::video::Id) of the unavailable [`Video`]
+    pub id: crate::video::Id,
+    /// The [`Reason`](UnavailabilityReason) why this [`Video`] is unavailable
+    pub reason: UnavailabilityReason,
 }
 
 /// A Video of a [`Playlist`](super::Playlist).
@@ -53,7 +50,7 @@ impl Video {
         if video.is_playable {
             Ok(Self { client, video })
         } else {
-            Err(Error::Unavailable {
+            Err(Error {
                 id: video.video_id,
                 reason: UnavailabilityReason::from_title(video.title.runs.0.text),
             })
@@ -86,15 +83,19 @@ impl Video {
     }
 
     /// The author of a video.
-    pub fn author(&self) -> &str {
-        self.video
+    pub fn channel(&self) -> super::Channel<'_> {
+        let short = &self
+            .video
             .short_byline_text
             .as_ref()
-            .expect("No author")
+            .expect("No channel")
             .runs
-            .0
-            .text
-            .as_str()
+            .0;
+        super::Channel {
+            client: Arc::clone(&self.client),
+            id: short.navigation_endpoint.browse_endpoint.browse_id,
+            name: &short.text,
+        }
     }
 
     /// Refetch this video for more information.
@@ -116,7 +117,7 @@ impl std::fmt::Debug for Video {
             .field("length", &self.length())
             .field("thumbnails", &self.thumbnails())
             .field("playable", &self.playable())
-            .field("author", &self.author())
+            .field("author", &self.channel())
             .finish()
     }
 }

@@ -50,8 +50,9 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
             "scsi2sd"
         ]
     );
-    assert_eq!(video.channel_id(), "UCXuqSBlHAE6Xw-yeJA0Tunw".parse()?);
-    assert_eq!(video.author(), "Linus Tech Tips");
+    let channel = video.channel();
+    assert_eq!(channel.id(), "UCXuqSBlHAE6Xw-yeJA0Tunw".parse()?);
+    assert_eq!(channel.name(), "Linus Tech Tips");
     assert!(!video.description().is_empty());
     assert!(video.views() >= 1_068_917);
 
@@ -63,7 +64,6 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
         unreachable!();
     }
 
-    assert!(!video.private());
     assert!(!video.live());
     assert!(!video.thumbnails().is_empty());
     assert!(!video.age_restricted());

@@ -10,56 +10,19 @@ use crate::{
     youtube::{
         browse::{
             self,
-            playlist::{
-                PlaylistSidebarItem, PlaylistSidebarPrimaryInfoRenderer,
-                PlaylistSidebarSecondaryInfoRenderer,
-            },
+            playlist::{PlaylistSidebarPrimaryInfoRenderer, PlaylistSidebarSecondaryInfoRenderer},
         },
         innertube::Browse,
     },
-    Thumbnail,
+    Client, Thumbnail,
 };
 
-/// The [`Error`](std::error::Error) produced when a invalid [`Playlist`] is
-/// encountered
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    /// A [`Playlist`] encountered an alert
-    #[error("Playlist with id '{0}' encountered alert: '{alert}'")]
-    Alert {
-        #[doc(hidden)]
-        alert: browse::playlist::AlertRenderer,
-    },
-}
-
-/// A [`Id`](crate::Id) describing a Playlist.
+/// A Id describing a Playlist.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Id(String);
 
-/// The [`Error`](std::error::Error) produced when a invalid [`Id`] is
-/// encountered
-#[derive(Debug, thiserror::Error)]
-pub enum IdError {
-    /// A invalid [`Id`] was found.
-    ///
-    /// A [`Id`] is only valid when all characters are on of:
-    ///
-    /// - `0..=9`
-    /// - `a..=z`
-    /// - `A..=Z`
-    /// - `_`
-    /// - `-`
-    #[error("Found invalid id: '{0}'")]
-    InvalidId(String),
-
-    /// A [`Id`] had an invalid length. All [`Id`]s have to be 34 characters
-    /// long
-    #[error(transparent)]
-    InvalidLength(#[from] crate::id::Error),
-}
-
 impl std::str::FromStr for Id {
-    type Err = IdError;
+    type Err = crate::error::Id<0>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         const PREFIXES: &[&str] = &["https://www.youtube.com/playlist?list="];
@@ -75,9 +38,9 @@ impl std::str::FromStr for Id {
         if id.chars().all(crate::id::validate_char)
             && ID_PREFIXES.iter().any(|prefix| id.starts_with(prefix))
         {
-            Ok(Id(s.to_string()))
+            Ok(Id(id.to_string()))
         } else {
-            Err(IdError::InvalidId(s.to_string()))
+            Err(crate::error::Id::InvalidId(s.to_string()))
         }
     }
 }
@@ -90,89 +53,50 @@ impl std::fmt::Display for Id {
 
 /// A Playlist.
 pub struct Playlist {
-    client: Arc<crate::Client>,
-    response: browse::playlist::Root,
+    client: Arc<Client>,
+    response: browse::playlist::Ok,
 }
 
 impl Playlist {
     pub(crate) async fn get(client: Arc<crate::Client>, id: Id) -> crate::Result<Self> {
-        let response: browse::playlist::Root = client.api.browse(Browse::Playlist(id)).await?;
-        if let Some((alert,)) = &response.alerts {
-            if &alert.alert_renderer.r#type == "ERROR" {
-                return Err(crate::Error::Playlist(Error::Alert {
-                    alert: alert.alert_renderer.clone(),
-                }));
-            }
-        }
+        let response: browse::playlist::Result = client.api.browse(Browse::Playlist(id)).await?;
+        let response = response.into_std()?;
 
         Ok(Self { client, response })
     }
 
     fn microformat(&self) -> &browse::playlist::MicroformatDataRenderer {
-        &self
-            .response
-            .microformat
-            .as_ref()
-            .expect("No microformat was found")
-            .microformat_data_renderer
+        &self.response.microformat.microformat_data_renderer
     }
 
     fn primary_sidebar(&self) -> &PlaylistSidebarPrimaryInfoRenderer {
-        self.response
+        &self
+            .response
             .sidebar
-            .as_ref()
-            .expect("No sidebar")
             .playlist_sidebar_renderer
             .items
-            .iter()
-            .find_map(|x| {
-                if let PlaylistSidebarItem::PlaylistSidebarPrimaryInfoRenderer(x) = x {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
-            .as_ref()
-            .expect("No Primary sidebar")
+            .0
+            .playlist_sidebar_primary_info_renderer
     }
 
     fn secondary_sidebar(&self) -> Option<&PlaylistSidebarSecondaryInfoRenderer> {
         self.response
             .sidebar
-            .as_ref()
-            .expect("No sidebar")
             .playlist_sidebar_renderer
             .items
-            .iter()
-            .find_map(|x| {
-                if let PlaylistSidebarItem::PlaylistSidebarSecondaryInfoRenderer(x) = x {
-                    Some(x)
-                } else {
-                    None
-                }
-            })
+            .1
+            .as_ref()
+            .map(|x| &x.playlist_sidebar_secondary_info_renderer)
     }
 
     /// The [`Id`] of a playlist
     pub fn id(&self) -> Id {
-        self.response
-            .contents
-            .as_ref()
-            .expect("No content")
-            .two_column_browse_results_renderer
-            .tabs
-            .0
-            .tab_renderer
-            .content
-            .section_list_renderer
-            .contents
-            .0
-            .item_section_renderer
-            .contents
-            .0
-            .playlist_video_list_renderer
-            .playlist_id
+        self.microformat()
+            .url_canonical
             .clone()
+            .split_off(37)
+            .parse()
+            .expect("Id returned from YouTube was not parsable")
     }
 
     /// The title of a playlist.
@@ -186,17 +110,13 @@ impl Playlist {
     }
 
     /// The name of the author of this playlist
-    pub fn author(&self) -> Option<&str> {
-        self.secondary_sidebar()
-            .as_ref()
-            .map(|x| x.video_owner.video_owner_renderer.name())
-    }
-
-    /// The id of the author's channel of this playlist
-    pub fn channel_id(&self) -> Option<crate::channel::Id> {
-        self.secondary_sidebar()
-            .as_ref()
-            .map(|x| x.video_owner.video_owner_renderer.id())
+    pub fn channel(&self) -> Option<Channel<'_>> {
+        let sec = &self.secondary_sidebar()?.video_owner.video_owner_renderer;
+        Some(Channel {
+            client: Arc::clone(&self.client),
+            id: sec.id(),
+            name: sec.name(),
+        })
     }
 
     /// Is this playlist unlisted?
@@ -222,7 +142,7 @@ impl Playlist {
     /// The [`Videos`](Video) of a playlist.
     pub fn videos(&self) -> impl futures_core::Stream<Item = Result<Video, video::Error>> + '_ {
         async_stream::stream! {
-            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem>> = Box::new(self.response.videos().cloned());
+            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem>> = Box::new(self.response.contents.videos().cloned());
 
             while let Some(video) = videos.next() {
                 match video {
@@ -248,6 +168,39 @@ impl std::fmt::Debug for Playlist {
             .field("description", &self.description())
             .field("unlisted", &self.unlisted())
             .field("thumbnails", &self.thumbnails())
+            .finish()
+    }
+}
+
+/// The creator of a [`Playlist`]
+pub struct Channel<'a> {
+    client: Arc<Client>,
+    id: crate::channel::Id,
+    name: &'a str,
+}
+
+impl<'a> Channel<'a> {
+    /// The [`Id`](crate::channel::Id) of a [`Channel`]
+    pub fn id(&self) -> crate::channel::Id {
+        self.id
+    }
+
+    /// The name of a [`Channel`]
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    /// Refetch the channel to get more information
+    pub async fn upgrade(&self) -> crate::Result<crate::Channel> {
+        self.client.channel(self.id).await
+    }
+}
+
+impl<'a> std::fmt::Debug for Channel<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Channel")
+            .field("id", &self.id)
+            .field("name", &self.name)
             .finish()
     }
 }

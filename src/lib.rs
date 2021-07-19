@@ -1,5 +1,13 @@
 //! A Library for extracting information from YouTube pages.
 //!
+//! # Notes
+//!
+//! ##### Subscriber count
+//!
+//! All functions that return subscriber counts only return 3-digit precision
+//! values as that is all that youtube returns. That means if channel has
+//! exactly `164_583` subscribers, this library will return `164_000`.
+//!
 //! # Basic Example
 //!
 //! ```rust
@@ -18,10 +26,12 @@
 
 #![deny(missing_docs, unsafe_code, rustdoc::missing_crate_level_docs)]
 
+#[macro_use]
+pub(crate) mod id;
+
 pub mod channel;
 mod client;
-mod error;
-mod id;
+pub mod error;
 pub(crate) mod player;
 pub mod playlist;
 pub mod stream;
@@ -29,9 +39,9 @@ mod thumbnail;
 pub mod video;
 pub(crate) mod youtube;
 
+pub use channel::Channel;
 pub use client::Client;
 pub use error::Error;
-pub use id::Id;
 pub use playlist::Playlist;
 pub use stream::Stream;
 pub use thumbnail::Thumbnail;

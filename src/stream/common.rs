@@ -36,7 +36,7 @@ impl Stream {
 
             Ok(res
                 .content_length()
-                .ok_or(super::Error::UnknownContentLength)?)
+                .expect("HEAD request did not have a content-length"))
         }
     }
 

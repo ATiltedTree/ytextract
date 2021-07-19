@@ -5,12 +5,63 @@ use reqwest::Url;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum StreamResult {
+    Ok {
+        #[serde(rename = "streamingData")]
+        streaming_data: StreamingData,
+    },
+    Error {
+        #[serde(rename = "playabilityStatus")]
+        playability_status: PlayabilityStatus,
+    },
+}
+
+impl StreamResult {
+    pub fn into_std(self) -> crate::Result<StreamingData> {
+        match self {
+            Self::Error { playability_status } => {
+                Err(crate::Error::Youtube(playability_status.as_error()))
+            }
+            Self::Ok { streaming_data } => Ok(streaming_data),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum Result {
+    Ok(PlayerResponse),
+    Error {
+        #[serde(rename = "playabilityStatus")]
+        playability_status: PlayabilityStatus,
+    },
+}
+
+impl Result {
+    pub fn into_std(self) -> crate::Result<PlayerResponse> {
+        match self {
+            Self::Error { playability_status } => {
+                Err(crate::Error::Youtube(playability_status.as_error()))
+            }
+            Self::Ok(ok) => Ok(ok),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerResponse {
     pub streaming_data: Option<StreamingData>,
-    pub video_details: Option<VideoDetails>,
-    pub microformat: Option<Microformat>,
+    pub video_details: VideoDetails,
+    pub microformat: Microformat,
     pub playability_status: PlayabilityStatus,
+}
+
+impl PlayerResponse {
+    pub fn is_streamable(&self) -> bool {
+        self.playability_status.status == "OK"
+    }
 }
 
 #[serde_with::serde_as]
@@ -18,14 +69,12 @@ pub struct PlayerResponse {
 #[serde(rename_all = "camelCase")]
 pub struct VideoDetails {
     pub title: String,
-    #[serde_as(as = "serde_with::DisplayFromStr")]
     pub video_id: crate::video::Id,
     #[serde_as(as = "serde_with::DurationSeconds<String>")]
     pub length_seconds: Duration,
 
     #[serde(default)]
     pub keywords: Vec<String>,
-    #[serde_as(as = "serde_with::DisplayFromStr")]
     pub channel_id: crate::channel::Id,
 
     pub author: String,
@@ -87,7 +136,6 @@ pub struct Format {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CommonFormat {
-    // common:
     #[serde_as(as = "Option<serde_with::DisplayFromStr>")]
     #[serde(default)]
     pub url: Option<Url>,
@@ -168,46 +216,53 @@ pub enum Quality {
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayabilityStatus {
-    pub status: PlayabilityErrorCode,
-    pub reason: Option<String>,
+    pub status: String,
+    pub error_screen: Option<ErrorScreen>,
 }
 
-// The doc(hidden) error codes are not actually errors or are handled by us, but
-// because this enum is `#[non_exhaustive]` this is fine
-/// A error-code returned by YouTube when a [`Video`](crate::Video) is unplayable
-#[derive(Debug, serde::Deserialize, PartialEq, Eq, Clone, Copy)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[non_exhaustive]
-pub enum PlayabilityErrorCode {
-    #[doc(hidden)]
-    Ok,
-    #[doc(hidden)]
-    AgeVerificationRequired,
-    #[doc(hidden)]
-    LoginRequired,
+impl PlayabilityStatus {
+    fn as_error(&self) -> crate::error::Youtube {
+        use crate::error::Youtube;
 
-    /// A livestream is currently offline
-    LiveStreamOffline,
+        let err = self
+            .error_screen
+            .as_ref()
+            .expect("Error did not have an Error screen")
+            .player_error_message_renderer
+            .as_ref();
 
-    /// A Generic Error
-    Error,
+        let err = if let Some(err) = err {
+            err
+        } else {
+            return Youtube::PurchaseRequired;
+        };
 
-    /// Unplayable
-    Unplayable,
+        match err.reason.simple_text.as_str() {
+            "Video unavailable" => Youtube::NotFound,
+            "Private video" => Youtube::Private,
+            "This video has been removed for violating YouTube's Community Guidelines." => {
+                Youtube::CommunityGuidelineViolation
+            }
+            e => unimplemented!("Unknown error screen text: '{}'", e),
+        }
+    }
 }
 
-impl PlayabilityErrorCode {
-    pub(crate) fn is_recoverable(self) -> bool {
-        matches!(
-            self,
-            Self::Ok
-                | Self::AgeVerificationRequired
-                | Self::LoginRequired
-                | Self::LiveStreamOffline
-                | Self::Unplayable
-        )
-    }
-    pub(crate) fn is_stream_recoverable(self) -> bool {
-        matches!(self, Self::Ok)
-    }
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorScreen {
+    pub player_error_message_renderer: Option<PlayerErrorMessageRenderer>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerErrorMessageRenderer {
+    pub reason: SimpleText,
+    //pub subreason: Option<SimpleText>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleText {
+    pub simple_text: String,
 }

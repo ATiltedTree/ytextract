@@ -3,21 +3,27 @@ use std::time::Duration;
 use serde::Deserialize;
 use serde_with::serde_as;
 
+pub type Result = super::Result<Ok>;
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Root {
-    pub contents: Option<Contents>,
-    pub microformat: Option<Microformat>,
-    pub alerts: Option<(Alert,)>,
-    pub sidebar: Option<Sidebar>,
+pub struct Ok {
+    pub contents: Contents,
+    pub microformat: Microformat,
+    pub sidebar: Sidebar,
 }
 
-impl Root {
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Contents {
+    pub two_column_browse_results_renderer: TwoColumnBrowseResultsRenderer,
+}
+
+impl Contents {
     pub fn videos(&self) -> impl Iterator<Item = &PlaylistItem> {
-        self.contents
-            .as_ref()
-            .expect("No content was found")
-            .two_column_browse_results_renderer
+        self.two_column_browse_results_renderer
             .tabs
             .0
             .tab_renderer
@@ -29,17 +35,10 @@ impl Root {
             .contents
             .0
             .playlist_video_list_renderer
-            .contents
-            .iter()
+            .as_ref()
+            .map(|pl| pl.contents.iter())
+            .unwrap_or_else(|| [].iter())
     }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Contents {
-    pub two_column_browse_results_renderer: TwoColumnBrowseResultsRenderer,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,16 +86,13 @@ pub struct ItemSectionRenderer {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Content3 {
-    pub playlist_video_list_renderer: PlaylistVideoListRenderer,
+    pub playlist_video_list_renderer: Option<PlaylistVideoListRenderer>,
 }
 
-#[serde_with::serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistVideoListRenderer {
     pub contents: Vec<PlaylistItem>,
-    #[serde_as(as = "serde_with::DisplayFromStr")]
-    pub playlist_id: crate::playlist::Id,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -130,16 +126,14 @@ pub struct ContinuationCommand {
     pub token: String,
 }
 
-#[serde_with::serde_as]
+#[serde_as]
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistVideoRenderer {
-    #[serde_as(as = "serde_with::DisplayFromStr")]
     pub video_id: crate::video::Id,
 
     pub thumbnail: Thumbnails,
     pub title: Runs<TitleRun>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub short_byline_text: Option<Runs<BylineRun>>,
 
     #[serde_as(as = "Option<serde_with::DurationSeconds<String>>")]
@@ -175,11 +169,9 @@ pub struct NavigationEndpoint {
     pub browse_endpoint: BrowseEndpoint,
 }
 
-#[serde_with::serde_as]
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowseEndpoint {
-    #[serde_as(as = "serde_with::DisplayFromStr")]
     pub browse_id: crate::channel::Id,
 }
 
@@ -193,6 +185,7 @@ pub struct Microformat {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MicroformatDataRenderer {
+    pub url_canonical: String,
     pub title: String,
     pub description: String,
     pub thumbnail: Thumbnails,
@@ -203,28 +196,6 @@ pub struct MicroformatDataRenderer {
 #[serde(rename_all = "camelCase")]
 pub struct Thumbnails {
     pub thumbnails: Vec<crate::Thumbnail>,
-}
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Alert {
-    pub alert_renderer: AlertRenderer,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AlertRenderer {
-    pub r#type: String,
-    pub text: Runs<TitleRun>,
-}
-
-impl std::error::Error for AlertRenderer {}
-
-impl std::fmt::Display for AlertRenderer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.text.runs.0.text)
-    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -238,14 +209,26 @@ pub struct Sidebar {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistSidebarRenderer {
-    pub items: Vec<PlaylistSidebarItem>,
+    pub items: PlaylistSidebarItems,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum PlaylistSidebarItem {
-    PlaylistSidebarPrimaryInfoRenderer(PlaylistSidebarPrimaryInfoRenderer),
-    PlaylistSidebarSecondaryInfoRenderer(PlaylistSidebarSecondaryInfoRenderer),
+pub struct PlaylistSidebarItems(
+    pub PlaylistSidebarPrimaryInfo,
+    #[serde(default)] pub Option<PlaylistSidebarSecondaryInfo>,
+);
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistSidebarPrimaryInfo {
+    pub playlist_sidebar_primary_info_renderer: PlaylistSidebarPrimaryInfoRenderer,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistSidebarSecondaryInfo {
+    pub playlist_sidebar_secondary_info_renderer: PlaylistSidebarSecondaryInfoRenderer,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -257,16 +240,18 @@ pub struct PlaylistSidebarPrimaryInfoRenderer {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoStats {
-    pub runs: (TitleRun, TitleRun),
+    pub runs: Vec<TitleRun>,
 }
 
 impl VideoStats {
     pub fn as_number(&self) -> u64 {
-        self.runs
-            .0
-            .text
-            .parse()
-            .expect("VideoStats text was not a number")
+        match self.runs[0].text.as_str() {
+            "No videos" => 0,
+            o => o
+                .replace(',', "")
+                .parse()
+                .expect("VideoStats text was not a number"),
+        }
     }
 }
 
@@ -278,13 +263,16 @@ pub struct ViewsStats {
 
 impl ViewsStats {
     pub fn as_number(&self) -> u64 {
-        let (number, _) = self
-            .simple_text
-            .split_once(' ')
-            .expect("No space in ViewsStats text");
-        number
-            .parse()
-            .expect("ViewsStats text did not contain a number")
+        match self.simple_text.as_str() {
+            "No views" => 0,
+            o => o
+                .split_once(' ')
+                .expect("No space in ViewsStats text")
+                .0
+                .replace(',', "")
+                .parse()
+                .expect("VideoStats text was not a number"),
+        }
     }
 }
 

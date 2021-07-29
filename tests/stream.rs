@@ -30,6 +30,7 @@ define_test!(vr, "-xNN-bJQ4vI");
 define_test!(hdr, "vX2vsvdq8nw");
 define_test!(rating_disabled, "5VGm0dczmHc");
 define_test!(subtitles, "YltHGKX80Y8");
+define_test!(age_restricted, "SkRSXFQerZs");
 
 mod embed_restricted {
     use super::CLIENT;

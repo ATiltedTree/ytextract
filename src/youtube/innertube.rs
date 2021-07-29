@@ -22,6 +22,18 @@ static CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
     })
 });
 
+static EMBEDDED_CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
+    serde_json::json!({
+        "client": {
+            "hl": "en",
+            "gl": "US",
+            "clientName": "ANDROID",
+            "clientScreen":"EMBED",
+            "clientVersion": "16.05"
+        }
+    })
+});
+
 pub enum ChannelPage {
     About,
     Playlists,
@@ -101,7 +113,18 @@ impl Api {
             video_id: id,
         };
 
-        self.get(format!("{}/player", BASE_URL), request).await
+        let res: player_response::StreamResult =
+            self.get(format!("{}/player", BASE_URL), request).await?;
+
+        if let Ok(streaming_data) = res.into_std() {
+            Ok(player_response::StreamResult::Ok { streaming_data })
+        } else {
+            let request = Request {
+                context: &EMBEDDED_CONTEXT,
+                video_id: id,
+            };
+            self.get(format!("{}/player", BASE_URL), request).await
+        }
     }
 
     pub async fn player(&self, id: crate::video::Id) -> crate::Result<player_response::Result> {

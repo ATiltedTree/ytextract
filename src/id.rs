@@ -92,6 +92,6 @@ macro_rules! define_id {
     };
 }
 
-pub(crate) fn validate_char(c: char) -> bool {
+pub const fn validate_char(c: char) -> bool {
     matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-')
 }

@@ -74,7 +74,7 @@ impl Stream {
         match format.ty {
             FormatType::Audio(audio) => Self::Audio(Audio {
                 common: Common {
-                    url: Stream::resolve_url(&client, &format.base),
+                    url: Self::resolve_url(&client, &format.base),
                     format: format.base,
                     client,
                 },
@@ -82,7 +82,7 @@ impl Stream {
             }),
             FormatType::Video(video) => Self::Video(Video {
                 common: Common {
-                    url: Stream::resolve_url(&client, &format.base),
+                    url: Self::resolve_url(&client, &format.base),
                     format: format.base,
                     client,
                 },

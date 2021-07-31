@@ -38,7 +38,7 @@ impl std::str::FromStr for Id {
         if id.chars().all(crate::id::validate_char)
             && ID_PREFIXES.iter().any(|prefix| id.starts_with(prefix))
         {
-            Ok(Id(id.to_string()))
+            Ok(Self(id.to_string()))
         } else {
             Err(crate::error::Id::InvalidId(s.to_string()))
         }

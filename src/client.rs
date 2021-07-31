@@ -19,7 +19,7 @@ impl Client {
     /// Create a new [`Client`]
     pub async fn new() -> crate::Result<Arc<Self>> {
         let http = reqwest::Client::new();
-        Ok(Arc::new(Client {
+        Ok(Arc::new(Self {
             player: OnceCell::new(),
             api: Api::new(http.clone()).await?,
             http,

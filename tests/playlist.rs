@@ -80,3 +80,25 @@ mod videos {
     define_test!(old, "PL601B2E69B03FAB9D");
     define_test!(youtube_mix, "RDCLAK5uy_lf8okgl2ygD075nhnJVjlfhwp8NsUgEbs");
 }
+
+mod error {
+    use super::CLIENT;
+
+    macro_rules! define_test {
+        ($fn:ident, $id:literal, $error:ident) => {
+            #[async_std::test]
+            async fn $fn() -> Result<(), Box<dyn std::error::Error>> {
+                let id = $id.parse()?;
+                let playlist = CLIENT.playlist(id).await;
+                assert!(matches!(
+                    playlist,
+                    Err(ytextract::Error::Youtube(ytextract::error::Youtube::$error)),
+                ));
+                Ok(())
+            }
+        };
+    }
+
+    define_test!(not_found, "PLI5YfMzCfRtZ8eV576YoY3vIYrHjyVm_F", NotFound);
+    define_test!(unviewable, "RDGMEMQ1dJ7wXfLlqCjwV0xfSNbA", Unviewable);
+}

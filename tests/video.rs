@@ -113,3 +113,46 @@ mod embed_restricted {
     define_test!(author, "MeJVWBSsPAY");
     define_test!(age_restricted, "hySoCSoH-g8");
 }
+
+mod error {
+    use super::CLIENT;
+
+    macro_rules! define_test {
+        ($fn:ident, $id:literal, $error:ident) => {
+            #[async_std::test]
+            async fn $fn() -> Result<(), Box<dyn std::error::Error>> {
+                let id = $id.parse()?;
+                assert!(matches!(
+                    CLIENT.video(id).await,
+                    Err(ytextract::Error::Youtube(ytextract::error::Youtube::$error)),
+                ));
+                Ok(())
+            }
+        };
+    }
+
+    define_test!(not_found, "L_VmQZtLVID", NotFound);
+    define_test!(private, "ZGdLIwrGHG8", Private);
+    define_test!(
+        nudity_or_sexual,
+        "-JVFs5w9V0U",
+        NudityOrSexualContentViolation
+    );
+    define_test!(account_terminated, "Pfhpe6shO2U", AccountTerminated);
+    define_test!(removed_by_uploader, "N3QlpdWUpHo", RemovedByUploader);
+    define_test!(tos_violation, "tJievCeKBs0", TermsOfServiceViolation);
+
+    #[async_std::test]
+    async fn copyright_claim() -> Result<(), Box<dyn std::error::Error>> {
+        let id = "6MNavkSGntQ".parse()?;
+
+        match CLIENT.video(id).await {
+            Ok(_) => panic!("got OK"),
+            Err(ytextract::Error::Youtube(ytextract::error::Youtube::CopyrightClaim {
+                claiment,
+            })) if claiment == "Richard DiBacco" => {}
+            Err(other) => panic!("{:#?}", other),
+        }
+        Ok(())
+    }
+}

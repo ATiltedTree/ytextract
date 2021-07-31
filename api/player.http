@@ -1,7 +1,6 @@
-@video_id = L_VmQZtLVIQ
-
-POST {{base}}/player?key={{key}}
+POST {{BASE}}/player
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -12,6 +11,6 @@ Content-Type: application/json
 			"clientVersion": "2.20210622.10.00"
 		}
     },
-    "video_id": "{{video_id}}"
+    "video_id": "p3dDcKOFXQg"
 }
 

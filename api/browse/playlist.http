@@ -1,7 +1,6 @@
-@playlist_id = PLCSusC_jlo14_7xep5gastSaLmqDeS2cZ
-
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -12,14 +11,12 @@ Content-Type: application/json
 			"clientVersion": "2.20210622.10.00"
 		}
     },
-    "browse_id": "VL{{playlist_id}}"
+    "browse_id": "VLPLCSusC_jlo14_7xep5gastSaLmqDeS2cY"
 }
 
 ### Continuation
 
-@continuation = 4qmFsgJhEiRWTFBMQ1N1c0NfamxvMTRfN3hlcDVnYXN0U2FMbXFEZVMyY1oaFENBRjZCbEJVT2tOSVJjSUdBZ2dBmgIiUExDU3VzQ19qbG8xNF83eGVwNWdhc3RTYUxtcURlUzJjWg%3D%3D
-
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse?key={{key}}
 Content-Type: application/json
 
 {
@@ -31,6 +28,6 @@ Content-Type: application/json
 			"clientVersion": "2.20210622.10.00"
 		}
     },
-    "continuation": "{{continuation}}"
+    "continuation": "4qmFsgJhEiRWTFBMQ1N1c0NfamxvMTRfN3hlcDVnYXN0U2FMbXFEZVMyY1oaFENBRjZCbEJVT2tOSVJjSUdBZ2dBmgIiUExDU3VzQ19qbG8xNF83eGVwNWdhc3RTYUxtcURlUzJjWg%3D%3D"
 }
 

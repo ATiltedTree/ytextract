@@ -1,9 +1,9 @@
-@channel_id = UCiGm_E4ZwYSHV3bcW1pnSeQ
-
 ### About
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
+
 
 {
 	"context": {
@@ -14,14 +14,15 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFE",
 	"params": "EgVhYm91dA%3D%3D"
 }
 
 ### Videos
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -32,14 +33,15 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFA",
 	"params": "EgZ2aWRlb3M%3D"
 }
 
 ### Playlists
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -50,14 +52,15 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFA",
 	"params": "EglwbGF5bGlzdHM%3D"
 }
 
 ### Channels
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -68,14 +71,15 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFA",
 	"params": "EghjaGFubmVscw%3D%3D"
 }
 
 ### Community
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -86,15 +90,16 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFA",
 	"params": "Egljb21tdW5pdHk%3D"
 }
 
 
 ### Store
 
-POST {{base}}/browse?key={{key}}
+POST {{BASE}}/browse
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {
@@ -105,7 +110,7 @@ Content-Type: application/json
 			"clientVersion": "2.20210701.07.00"
 		}
 	},
-	"browseId": "{{channel_id}}",
+	"browseId": "UCJwGWV914kBlV4dKRn7AEFA",
 	"params": "EgVzdG9yZQ%3D%3D"
 }
 

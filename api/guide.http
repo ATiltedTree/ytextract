@@ -1,5 +1,6 @@
-POST {{base}}/guide?key={{key}}
+POST {{BASE}}/guide
 Content-Type: application/json
+X-Goog-Api-Key: {{KEY}}
 
 {
 	"context": {

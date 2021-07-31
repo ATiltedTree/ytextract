@@ -27,9 +27,9 @@ static EMBEDDED_CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
         "client": {
             "hl": "en",
             "gl": "US",
-            "clientName": "ANDROID",
+            "clientName": "WEB",
             "clientScreen":"EMBED",
-            "clientVersion": "16.05"
+            "clientVersion": "1.20210620.0.1"
         }
     })
 });
@@ -116,14 +116,16 @@ impl Api {
         let res: player_response::StreamResult =
             self.get(format!("{}/player", BASE_URL), request).await?;
 
-        if let Ok(streaming_data) = res.into_std() {
-            Ok(player_response::StreamResult::Ok { streaming_data })
-        } else {
-            let request = Request {
-                context: &EMBEDDED_CONTEXT,
-                video_id: id,
-            };
-            self.get(format!("{}/player", BASE_URL), request).await
+        match res.into_std() {
+            Ok(streaming_data) => Ok(player_response::StreamResult::Ok { streaming_data }),
+            Err(crate::Error::Youtube(err)) if err.is_streamable() => {
+                let request = Request {
+                    context: &EMBEDDED_CONTEXT,
+                    video_id: id,
+                };
+                self.get(format!("{}/player", BASE_URL), request).await
+            }
+            Err(err) => Err(err),
         }
     }
 

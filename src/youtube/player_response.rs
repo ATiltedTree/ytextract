@@ -211,6 +211,7 @@ pub enum Quality {
 #[serde(rename_all = "camelCase")]
 pub struct PlayabilityStatus {
     pub status: String,
+    pub reason: Option<String>,
     pub error_screen: Option<ErrorScreen>,
 }
 
@@ -218,27 +219,37 @@ impl PlayabilityStatus {
     fn as_error(&self) -> crate::error::Youtube {
         use crate::error::Youtube;
 
-        let err = self
-            .error_screen
-            .as_ref()
-            .expect("Error did not have an Error screen")
-            .player_error_message_renderer
-            .as_ref();
-
-        let err = if let Some(err) = err {
-            err
-        } else {
-            return Youtube::PurchaseRequired;
-        };
-
-        match err.reason.simple_text.as_str() {
-            "Video unavailable" => Youtube::NotFound,
-            "Private video" => Youtube::Private,
-            "This video has been removed for violating YouTube's Community Guidelines." => {
-                Youtube::CommunityGuidelineViolation
-            }
-            "Sign in to confirm your age" => Youtube::AgeRestricted,
-            e => unimplemented!("Unknown error screen text: '{}'", e),
+        match (self.reason.as_ref(), self.error_screen.as_ref()) {
+            (_, Some(ErrorScreen { player_error_message_renderer: Some(renderer)})) => {
+                match renderer.reason.simple_text.as_str() {
+                    "Private video" => Youtube::Private,
+                    "Video unavailable" => match renderer.subreason().unwrap_or("This video is unavailable") {
+                        "This video is no longer available because the YouTube account associated with this video has been terminated." => Youtube::AccountTerminated,
+                        "This video is unavailable" => Youtube::NotFound,
+                        "This video has been removed by the uploader" => Youtube::RemovedByUploader,
+                        "This video is no longer available due to a copyright claim by " => {
+                            if let Some(Subreason::Runs(runs)) = &renderer.subreason {
+                                let claiment = runs.runs[1].text.clone();
+                                Youtube::CopyrightClaim {claiment}
+                            } else {
+                                unreachable!("copyright claim error screen did was not Runs")
+                            }
+                        }
+                        e => unimplemented!("Unknown subreason for video unavailable: '{}'", e),
+                    },
+                    "Sign in to confirm your age" => Youtube::AgeRestricted,
+                    "This video has been removed for violating YouTube's policy on nudity or sexual content." => Youtube::NudityOrSexualContentViolation,
+                    "This video has been removed for violating YouTube's Terms of Service." => Youtube::TermsOfServiceViolation,
+                    e => unimplemented!("Unknown error screen text: '{}'", e)
+                }
+            },
+            (Some(reason), _) => {
+                match reason.as_str() {
+                    "This video requires payment to watch." => Youtube::PurchaseRequired,
+                    e => unimplemented!("Unknown error reason: '{}'", e),
+                }
+            },
+            e => todo!("{:#?}", e),
         }
     }
 }
@@ -253,11 +264,39 @@ pub struct ErrorScreen {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerErrorMessageRenderer {
     pub reason: SimpleText,
-    //pub subreason: Option<SimpleText>,
+    subreason: Option<Subreason>,
+}
+
+impl PlayerErrorMessageRenderer {
+    fn subreason(&self) -> Option<&str> {
+        match self.subreason.as_ref()? {
+            Subreason::SimpleText(text) => Some(text.simple_text.as_str()),
+            Subreason::Runs(runs) => Some(runs.runs.get(0)?.text.as_str()),
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum Subreason {
+    SimpleText(SimpleText),
+    Runs(Runs),
 }
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleText {
     pub simple_text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Runs {
+    pub runs: Vec<TitleRun>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TitleRun {
+    pub text: String,
 }

@@ -42,8 +42,6 @@ pub enum Youtube {
     CommunityGuidelineViolation,
 
     /// A Video is not available in your country.
-    ///
-    /// Maybe try tor :^)
     #[error("a video is not available in your country")]
     GeoRestricted,
 
@@ -61,6 +59,35 @@ pub enum Youtube {
     /// [`Streams`](crate::Stream) could not be fetched.
     #[error("a video is age-restricted")]
     AgeRestricted,
+
+    /// A [`Video`](crate::Video) is not available due to nudity or sexual content violations.
+    #[error("a video is not available due to nudity or sexual content violations")]
+    NudityOrSexualContentViolation,
+
+    /// The channel or the channel associated with a video was terminated.
+    #[error("the channel or the channel associated with a video was terminated")]
+    AccountTerminated,
+
+    /// A [`Video`](crate::Video) was removed by the uploader.
+    #[error("a video was removed by the uploader")]
+    RemovedByUploader,
+
+    /// A [`Video`](crate::Video) is not available due to violations of YouTube's Terms of Service.
+    #[error("a video is not available due to violations of YouTube's Terms of Service")]
+    TermsOfServiceViolation,
+
+    /// A [`Video`](crate::Video) is not available due to a copyright claim by the `claiment`
+    #[error("a video is not available due to a copyright claim by '{claiment}'")]
+    CopyrightClaim {
+        /// The person that made this copyright claim
+        claiment: String,
+    },
+}
+
+impl Youtube {
+    pub(crate) fn is_streamable(&self) -> bool {
+        matches!(self, &Self::AgeRestricted)
+    }
 }
 
 /// The Error produced when a invalid Id is found

@@ -94,3 +94,24 @@ mod badges {
     define_test!(artist, "UCiGm_E4ZwYSHV3bcW1pnSeQ", VerifiedArtist);
     define_test!(verified, "UCDxS8VeAQhnHJc6B5jE3KHg", Verified);
 }
+
+mod error {
+    use super::CLIENT;
+
+    macro_rules! define_test {
+        ($fn:ident, $id:literal, $error:ident) => {
+            #[async_std::test]
+            async fn $fn() -> Result<(), Box<dyn std::error::Error>> {
+                let id = $id.parse()?;
+                let channel = CLIENT.channel(id).await;
+                assert!(matches!(
+                    channel,
+                    Err(ytextract::Error::Youtube(ytextract::error::Youtube::$error)),
+                ));
+                Ok(())
+            }
+        };
+    }
+
+    define_test!(not_found, "UC5CwaMl1eIgY8h02uZw7u8F", NotFound);
+}

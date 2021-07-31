@@ -17,9 +17,7 @@ impl<T> Result<T> {
             Self::Error { alerts } => {
                 assert_eq!(alerts.0.alert_renderer.r#type, "ERROR");
 
-                let text = alerts.0.alert_renderer.text.runs.0.text;
-                eprintln!("{}", text);
-                match text.as_str() {
+                match alerts.0.alert_renderer.text() {
                     "The playlist does not exist." | "This channel does not exist." => {
                         Err(crate::Error::Youtube(crate::error::Youtube::NotFound))
                     }
@@ -43,7 +41,29 @@ pub struct Alert {
 #[derive(Debug, Deserialize)]
 pub struct AlertRenderer {
     pub r#type: String,
-    pub text: Runs,
+    pub text: Text,
+}
+
+impl AlertRenderer {
+    fn text(&self) -> &str {
+        match &self.text {
+            Text::SimpleText(simple_text) => simple_text.simple_text.as_str(),
+            Text::Runs(runs) => runs.runs.0.text.as_str(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum Text {
+    SimpleText(SimpleText),
+    Runs(Runs),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleText {
+    pub simple_text: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -9,6 +9,7 @@ use reqwest::Url;
 use std::{sync::Arc, time::Duration};
 
 /// A [`Stream`](super::Stream) containing video or audio data.
+#[derive(Clone)]
 pub struct Stream {
     pub(super) format: CommonFormat,
     pub(super) client: Arc<Client>,
@@ -79,7 +80,7 @@ impl Stream {
         self.format.duration
     }
 
-    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct) {
+    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct<'_, '_>) {
         debug
             .field("url", &self.url)
             .field("quality", &self.quality())

@@ -52,6 +52,7 @@ impl std::fmt::Display for Id {
 }
 
 /// A Playlist.
+#[derive(Clone)]
 pub struct Playlist {
     client: Arc<Client>,
     response: browse::playlist::Ok,
@@ -172,7 +173,16 @@ impl std::fmt::Debug for Playlist {
     }
 }
 
+impl PartialEq for Playlist {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl Eq for Playlist {}
+
 /// The creator of a [`Playlist`]
+#[derive(Clone)]
 pub struct Channel<'a> {
     client: Arc<Client>,
     id: crate::channel::Id,
@@ -204,3 +214,11 @@ impl<'a> std::fmt::Debug for Channel<'a> {
             .finish()
     }
 }
+
+impl<'a> PartialEq for Channel<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl<'a> Eq for Channel<'a> {}

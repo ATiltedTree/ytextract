@@ -49,17 +49,16 @@ impl Result {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerResponse {
     pub streaming_data: Option<StreamingData>,
     pub video_details: VideoDetails,
     pub microformat: Microformat,
-    pub playability_status: PlayabilityStatus,
 }
 
 #[serde_with::serde_as]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoDetails {
     pub title: String,
@@ -84,20 +83,20 @@ pub struct VideoDetails {
     pub thumbnail: Thumbnail,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Thumbnail {
     pub thumbnails: Vec<crate::Thumbnail>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Microformat {
     pub player_microformat_renderer: PlayerMicroformatRenderer,
 }
 
 #[serde_with::serde_as]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerMicroformatRenderer {
     // Nonexistant == not family safe

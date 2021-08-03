@@ -59,6 +59,7 @@ pub(crate) async fn get(
 }
 
 /// A Stream of a YouTube video
+#[derive(Clone)]
 pub enum Stream {
     /// A [`Audio`]
     Audio(Audio),

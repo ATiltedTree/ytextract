@@ -2,7 +2,7 @@
 
 macro_rules! define_id {
     ($len:literal, $doc:literal, [$($prefix:literal),*,]) => {
-        #[derive(Clone, Copy, PartialEq, Eq)]
+        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
         #[doc = $doc]
         pub struct Id([u8; $len]);
 
@@ -40,7 +40,7 @@ macro_rules! define_id {
         impl<'de> serde::de::Visitor<'de> for IdVisitor {
             type Value = Id;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(formatter, "a id of length {}", $len)
             }
 

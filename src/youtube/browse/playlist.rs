@@ -5,7 +5,7 @@ use serde_with::serde_as;
 
 pub type Result = super::Result<Ok>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Ok {
     pub contents: Contents,
@@ -15,7 +15,7 @@ pub struct Ok {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Contents {
     pub two_column_browse_results_renderer: TwoColumnBrowseResultsRenderer,
@@ -40,55 +40,55 @@ impl Contents {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TwoColumnBrowseResultsRenderer {
     pub tabs: (Tab,),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Tab {
     pub tab_renderer: TabRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TabRenderer {
     pub content: Content,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     pub section_list_renderer: SectionListRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SectionListRenderer {
     pub contents: (Content2,),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Content2 {
     pub item_section_renderer: ItemSectionRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemSectionRenderer {
     pub contents: (Content3,),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Content3 {
     pub playlist_video_list_renderer: Option<PlaylistVideoListRenderer>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaylistVideoListRenderer {
     pub contents: Vec<PlaylistItem>,
@@ -175,13 +175,13 @@ pub struct BrowseEndpoint {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Microformat {
     pub microformat_data_renderer: MicroformatDataRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MicroformatDataRenderer {
     pub url_canonical: String,

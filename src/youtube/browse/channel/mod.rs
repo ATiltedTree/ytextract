@@ -4,7 +4,7 @@ pub mod about;
 
 pub type Result<T> = super::Result<Ok<T>>;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Ok<T> {
     pub header: Header,
@@ -26,13 +26,13 @@ impl<T> Ok<T> {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Header {
     pub c4_tabbed_header_renderer: C4TabbedHeaderRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct C4TabbedHeaderRenderer {
     pub title: String,
@@ -45,47 +45,47 @@ pub struct C4TabbedHeaderRenderer {
     pub subscriber_count_text: SimpleText,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Thumbnails {
     pub thumbnails: Vec<crate::Thumbnail>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
     pub channel_metadata_renderer: ChannelMetadataRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelMetadataRenderer {
     pub is_family_safe: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Contents<T> {
     pub two_column_browse_results_renderer: TwoColumnBrowseResultsRenderer<T>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TwoColumnBrowseResultsRenderer<T> {
     pub tabs: Vec<Tab<T>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleText {
     pub simple_text: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Empty {}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum Tab<T> {
     Some {
@@ -95,19 +95,19 @@ pub enum Tab<T> {
     None {},
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TabRenderer<T> {
     pub content: T,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Badge {
     pub metadata_badge_renderer: MetadataBadgeRenderer,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataBadgeRenderer {
     pub style: String,

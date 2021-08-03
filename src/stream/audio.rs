@@ -1,6 +1,7 @@
 use crate::youtube::player_response::AudioFormat;
 
 /// A [`Stream`](super::Stream) specifically containing audio data.
+#[derive(Clone)]
 pub struct Stream {
     pub(super) common: super::common::Stream,
     pub(super) audio: AudioFormat,
@@ -25,7 +26,7 @@ impl Stream {
         self.audio.audio_channels
     }
 
-    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct) {
+    pub(super) fn debug(&self, debug: &mut std::fmt::DebugStruct<'_, '_>) {
         debug
             .field("sample_rate", &self.sample_rate())
             .field("channels", &self.channels());

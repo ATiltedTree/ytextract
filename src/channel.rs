@@ -54,6 +54,7 @@ impl Badge {
 }
 
 /// A Channel
+#[derive(Clone)]
 pub struct Channel {
     client: Arc<Client>,
     response: browse::channel::about::Root,
@@ -166,6 +167,30 @@ impl Channel {
     // TODO: Playlist
     // TODO: Channels
 }
+
+impl std::fmt::Debug for Channel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Channel")
+            .field("id", &self.id())
+            .field("name", &self.name())
+            .field("description", &self.description())
+            .field("country", &self.country())
+            .field("views", &self.views())
+            .field("subscribers", &self.subscribers())
+            .field("avatar", &self.avatar().collect::<Vec<_>>())
+            .field("banner", &self.banner().collect::<Vec<_>>())
+            .field("badges", &self.badges().collect::<Vec<_>>())
+            .finish()
+    }
+}
+
+impl PartialEq for Channel {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl Eq for Channel {}
 
 fn parse_amount(value: &str) -> Option<u64> {
     let last = value.chars().last()?;

@@ -31,7 +31,7 @@ use std::{sync::Arc, time::Duration};
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct Video {
     initial_data: Value,
     player_response: PlayerResponse,
@@ -175,6 +175,37 @@ impl Video {
     }
 }
 
+impl std::fmt::Debug for Video {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Video")
+            .field("id", &self.id())
+            .field("title", &self.title())
+            .field("duration", &self.duration())
+            .field("keywords", &self.keywords())
+            .field("channel", &self.channel())
+            .field("description", &self.description())
+            .field("views", &self.views())
+            .field("ratings", &self.ratings())
+            .field("live", &self.live())
+            .field("thumbnails", &self.thumbnails())
+            .field("age_restricted", &self.age_restricted())
+            .field("family_safe", &self.family_safe())
+            .field("unlisted", &self.unlisted())
+            .field("category", &self.category())
+            .field("publish_date", &self.publish_date())
+            .field("upload_date", &self.upload_date())
+            .finish()
+    }
+}
+
+impl PartialEq for Video {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl Eq for Video {}
+
 /// The uploader of a video
 pub struct Channel<'a> {
     client: Arc<Client>,
@@ -208,8 +239,16 @@ impl<'a> std::fmt::Debug for Channel<'a> {
     }
 }
 
+impl<'a> PartialEq for Channel<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl<'a> Eq for Channel<'a> {}
+
 /// Ratings on a video
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Ratings {
     /// Rating is allowed
     Allowed {

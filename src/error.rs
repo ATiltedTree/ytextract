@@ -16,7 +16,7 @@ pub enum Error {
 ///
 /// This Error is `#[non_exhaustive]` because YouTube can add errors at any
 /// moment and breaking major version every time is annoying.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq, Clone)]
 #[non_exhaustive]
 pub enum Youtube {
     /// A entity was not found. This can be:

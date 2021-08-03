@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::{youtube::browse, Client, Thumbnail};
 
 /// The reason as to why a [`Video`] is unavailable
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum UnavailabilityReason {
     /// The [`Video`] was deleted
@@ -26,7 +26,7 @@ impl UnavailabilityReason {
 
 /// A [`Error`](std::error::Error) that occurs when a [`Video`] in a
 /// [`Playlist`](super::Playlist) is unavailable
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Clone, Copy)]
 #[non_exhaustive]
 #[error("Video with id '{id}' is unavailable with reason: '{reason:?}'")]
 pub struct Error {
@@ -121,3 +121,11 @@ impl std::fmt::Debug for Video {
             .finish()
     }
 }
+
+impl PartialEq for Video {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl Eq for Video {}

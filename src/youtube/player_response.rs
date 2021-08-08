@@ -239,6 +239,7 @@ impl PlayabilityStatus {
                     "Sign in to confirm your age" => Youtube::AgeRestricted,
                     "This video has been removed for violating YouTube's policy on nudity or sexual content." => Youtube::NudityOrSexualContentViolation,
                     "This video has been removed for violating YouTube's Terms of Service." => Youtube::TermsOfServiceViolation,
+                    "This video requires payment to watch." => Youtube::PurchaseRequired,
                     e => unimplemented!("Unknown error screen text: '{}'", e)
                 }
             },

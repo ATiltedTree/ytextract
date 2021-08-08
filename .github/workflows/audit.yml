@@ -3,13 +3,9 @@ on:
   pull_request:
     paths:
       - Cargo.toml
-  push:
-    paths:
-      - Cargo.toml
-    branches:
-      - main
   schedule:
     - cron: '0 0 * * *'
+
 jobs:
   security_audit:
     name: Audit

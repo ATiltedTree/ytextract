@@ -231,7 +231,7 @@ impl PlayabilityStatus {
                                 let claiment = runs.runs[1].text.clone();
                                 Youtube::CopyrightClaim {claiment}
                             } else {
-                                unreachable!("copyright claim error screen did was not Runs")
+                                unreachable!("copyright claim error screen was not Runs")
                             }
                         }
                         e => unimplemented!("Unknown subreason for video unavailable: '{}'", e),
@@ -249,7 +249,7 @@ impl PlayabilityStatus {
                     e => unimplemented!("Unknown error reason: '{}'", e),
                 }
             },
-            e => todo!("{:#?}", e),
+            e => unimplemented!("Got {:#?}, and status '{}'", e, self.status),
         }
     }
 }

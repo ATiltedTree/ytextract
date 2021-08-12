@@ -1,4 +1,11 @@
-//! Video types.
+//! Videos.
+//!
+//! Videos are identified by a unique [`Id`], and can be queried with a
+//! [`Client`](crate::Client).
+//!
+//! Once you have a [`Video`] you can use [`Video::streams`] to get its
+//! [`Streams`](crate::Stream). These contain URLs to download videos,
+//! along with metadata about dimensions and fps.
 //!
 //! # Example
 //!
@@ -19,18 +26,9 @@ use serde_json::Value;
 
 use std::{sync::Arc, time::Duration};
 
-/// A Video found on YouTube
+/// A Video.
 ///
-/// # Example
-///
-/// ```rust
-/// # #[async_std::main] async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let client = ytextract::Client::new().await?;
-///
-/// let video = client.video("nI2e-J6fsuk".parse()?).await?;
-/// # Ok(())
-/// # }
-/// ```
+/// For more information see the [crate level documentation](crate::video)
 #[derive(Clone)]
 pub struct Video {
     initial_data: Value,
@@ -49,27 +47,27 @@ impl Video {
         })
     }
 
-    /// The title of a [`Video`]
+    /// The title of a [`Video`].
     pub fn title(&self) -> &str {
         &self.player_response.video_details.title
     }
 
-    /// The [`Id`] of a [`Video`]
+    /// The [`Id`] of a [`Video`].
     pub fn id(&self) -> Id {
         self.player_response.video_details.video_id
     }
 
-    /// The [`Duration`] of a [`Video`]
+    /// The [`Duration`] of a [`Video`].
     pub fn duration(&self) -> Duration {
         self.player_response.video_details.length_seconds
     }
 
-    /// The keyword/tags of a [`Video`]
+    /// The keyword/tags of a [`Video`].
     pub fn keywords(&self) -> &Vec<String> {
         &self.player_response.video_details.keywords
     }
 
-    /// The [`Channel`] of a [`Video`]
+    /// The [`Channel`] of a [`Video`].
     pub fn channel(&self) -> Channel<'_> {
         Channel {
             client: Arc::clone(&self.client),
@@ -78,17 +76,17 @@ impl Video {
         }
     }
 
-    /// The description of a [`Video`]
+    /// The description of a [`Video`].
     pub fn description(&self) -> &str {
         &self.player_response.video_details.short_description
     }
 
-    /// The views of a [`Video`]
+    /// The amount of views a [`Video`] received.
     pub fn views(&self) -> u64 {
         self.player_response.video_details.view_count
     }
 
-    /// The [`Ratings`] of a [`Video`]
+    /// The [`Ratings`] a [`Video`] received.
     pub fn ratings(&self) -> Ratings {
         if self.player_response.video_details.allow_ratings {
             let fixed_tooltip = self.initial_data["contents"]["twoColumnWatchNextResults"]
@@ -119,7 +117,8 @@ impl Video {
         }
     }
 
-    /// If a [`Video`] is live (e.g. a Livestream) or if it was live in the past
+    /// If a [`Video`] is live (e.g. a Livestream) or if it was live in the
+    /// past.
     pub fn live(&self) -> bool {
         self.player_response.video_details.is_live_content
     }
@@ -129,42 +128,36 @@ impl Video {
         &self.player_response.video_details.thumbnail.thumbnails
     }
 
-    /// If a [`Video`] is age-restricted. This is the opposite of
-    /// [`Video::family_safe`].
+    /// If a [`Video`] is age-restricted.
     pub fn age_restricted(&self) -> bool {
-        !self.family_safe()
+        !self.microformat().is_family_safe
     }
 
     fn microformat(&self) -> &crate::youtube::player_response::PlayerMicroformatRenderer {
         &self.player_response.microformat.player_microformat_renderer
     }
 
-    /// If a [`Video`] is family safe
-    pub fn family_safe(&self) -> bool {
-        self.microformat().is_family_safe
-    }
-
-    /// If a [`Video`] is unlisted
+    /// If a [`Video`] is unlisted.
     pub fn unlisted(&self) -> bool {
         self.microformat().is_unlisted
     }
 
-    /// The category a [`Video`] belongs in
+    /// The category a [`Video`] belongs in.
     pub fn category(&self) -> &str {
         &self.microformat().category
     }
 
-    /// The publish date of a [`Video`]
+    /// The date a [`Video`] was published.
     pub fn publish_date(&self) -> chrono::NaiveDate {
         self.microformat().publish_date
     }
 
-    /// The upload date of a [`Video`]
+    /// The date a [`Video`] was uploaded.
     pub fn upload_date(&self) -> chrono::NaiveDate {
         self.microformat().upload_date
     }
 
-    /// The [`Stream`]s of a [`Video`]
+    /// The [`Streams`](Stream) of a [`Video`]
     pub async fn streams(&self) -> crate::Result<impl Iterator<Item = Stream>> {
         crate::stream::get(
             Arc::clone(&self.client),
@@ -189,7 +182,6 @@ impl std::fmt::Debug for Video {
             .field("live", &self.live())
             .field("thumbnails", &self.thumbnails())
             .field("age_restricted", &self.age_restricted())
-            .field("family_safe", &self.family_safe())
             .field("unlisted", &self.unlisted())
             .field("category", &self.category())
             .field("publish_date", &self.publish_date())

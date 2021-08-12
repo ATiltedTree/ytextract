@@ -20,16 +20,11 @@ define_id! {
 
 impl Id {
     /// Get the playlist id that contains the uploads for this channel
-    pub fn uploads(self) -> crate::playlist::Id {
-        String::from(&*self)
-            .chars()
-            .enumerate()
-            // Turn `UCdktGrgQlqxPsvHo6cHF0Ng`
-            // into `UUdktGrgQlqxPsvHo6cHF0Ng`
-            .map(|(i, ch)| if i == 1 { 'U' } else { ch })
-            .collect::<String>()
-            .parse()
-            .expect("Unable to convert")
+    pub fn uploads(mut self) -> crate::playlist::Id {
+        // Turn `UCdktGrgQlqxPsvHo6cHF0Ng`
+        // into `UUdktGrgQlqxPsvHo6cHF0Ng`
+        self.0[1] = b'U';
+        crate::playlist::Id(String::from(&*self))
     }
 }
 
@@ -48,7 +43,7 @@ impl Badge {
         match badge.metadata_badge_renderer.style.as_str() {
             "BADGE_STYLE_TYPE_VERIFIED_ARTIST" => Self::VerifiedArtist,
             "BADGE_STYLE_TYPE_VERIFIED" => Self::Verified,
-            badge => unreachable!("Unknown badge: '{}'", badge),
+            badge => unimplemented!("Unknown badge: '{}'", badge),
         }
     }
 }
@@ -120,28 +115,15 @@ impl Channel {
 
     /// The views that this channel received
     pub fn views(&self) -> u64 {
-        self.contents()
-            .view_count_text
-            .simple_text
-            .split_once(' ')
-            .expect("No space in view count")
-            .0
-            .replace(',', "")
-            .parse()
-            .expect("not int")
+        self.contents().views()
     }
 
     /// The amount of subscribers this channel has.
-    pub fn subscribers(&self) -> u64 {
-        parse_amount(
-            self.header()
-                .subscriber_count_text
-                .simple_text
-                .split_once(' ')
-                .expect("no space in subscriber_count_text")
-                .0,
-        )
-        .expect("Unable to parse subscriber count")
+    ///
+    /// With [`None`] either being, no subscribers or viewing the subscriber
+    /// count is disallowed.
+    pub fn subscribers(&self) -> Option<u64> {
+        self.header().subscribers()
     }
 
     /// The avatar of the channel in various sizes
@@ -191,20 +173,3 @@ impl PartialEq for Channel {
 }
 
 impl Eq for Channel {}
-
-fn parse_amount(value: &str) -> Option<u64> {
-    let last = value.chars().last()?;
-    if last.is_numeric() {
-        value.parse().ok()
-    } else {
-        let val = &value[..value.len() - 1];
-        let val: f64 = val.parse().ok()?;
-        let mul = match last {
-            'K' => 1_000.0,
-            'M' => 1_000_000.0,
-            modifier => unreachable!("Unknown modifier '{}'", modifier),
-        };
-
-        Some((val * mul) as u64)
-    }
-}

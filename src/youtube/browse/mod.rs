@@ -24,7 +24,7 @@ impl<T> Result<T> {
                     "This playlist type is unviewable." => {
                         Err(crate::Error::Youtube(crate::error::Youtube::Unviewable))
                     }
-                    e => unreachable!("Unknown Error text: '{}'", e),
+                    e => unimplemented!("Unknown Error text: '{}'", e),
                 }
             }
             Self::Ok(ok) => Ok(ok),

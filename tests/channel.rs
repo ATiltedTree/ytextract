@@ -17,9 +17,20 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
     assert!(channel.avatar().next().is_some());
     assert!(channel.banner().next().is_some());
     assert!(channel.views() >= 90_969_900);
-    assert!(channel.subscribers() >= 146_000);
+    assert!(channel.subscribers() >= Some(146_000));
     assert!(channel.uploads().await.is_ok());
     assert!(channel.badges().next().is_some());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn eq() -> Result<(), Box<dyn std::error::Error>> {
+    let id = "UCdktGrgQlqxPsvHo6cHF0Ng".parse()?;
+    let channel1 = CLIENT.channel(id).await?;
+    let channel2 = CLIENT.channel(id).await?;
+
+    assert_eq!(channel1, channel2);
 
     Ok(())
 }
@@ -114,4 +125,42 @@ mod error {
     }
 
     define_test!(not_found, "UC5CwaMl1eIgY8h02uZw7u8F", NotFound);
+}
+
+mod subscribers {
+    use super::CLIENT;
+
+    macro_rules! define_test {
+        ($fn:ident, $id:literal, $subscribers:literal) => {
+            #[async_std::test]
+            async fn $fn() -> Result<(), Box<dyn std::error::Error>> {
+                let id = $id.parse()?;
+                let channel = CLIENT.channel(id).await?;
+                assert!(channel.subscribers() >= Some($subscribers));
+                Ok(())
+            }
+        };
+    }
+
+    #[async_std::test]
+    async fn zero() -> Result<(), Box<dyn std::error::Error>> {
+        let id = "UCZqdX9k5eyv1aO7i2746bXg".parse()?;
+        let channel = CLIENT.channel(id).await?;
+        assert_eq!(channel.subscribers(), None);
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn unviewable() -> Result<(), Box<dyn std::error::Error>> {
+        let id = "UCgSJ92_7N3_TOHvKxN2yV1w".parse()?;
+        let channel = CLIENT.channel(id).await?;
+        assert_eq!(channel.subscribers(), None);
+        Ok(())
+    }
+
+    define_test!(hundred, "UC-L5xxQzDhx99_g51h-g-tg", 100);
+
+    define_test!(thousand, "UCxS98ISZNcuaJRCvy6JV6Fw", 1_000);
+
+    define_test!(million, "UC7tD6Ifrwbiy-BoaAHEinmQ", 1_000_000);
 }

@@ -19,15 +19,14 @@ impl UnavailabilityReason {
         match title.as_ref() {
             "[Deleted video]" => Self::Deleted,
             "[Private video]" => Self::Private,
-            unknown => unreachable!("Unknown error title: '{}'", unknown),
+            unknown => unimplemented!("Unknown error title: '{}'", unknown),
         }
     }
 }
 
 /// A [`Error`](std::error::Error) that occurs when a [`Video`] in a
 /// [`Playlist`](super::Playlist) is unavailable
-#[derive(Debug, thiserror::Error, Clone, Copy)]
-#[non_exhaustive]
+#[derive(Debug, thiserror::Error, Clone, Copy, PartialEq, Eq)]
 #[error("Video with id '{id}' is unavailable with reason: '{reason:?}'")]
 pub struct Error {
     /// The [`Id`](crate::video::Id) of the unavailable [`Video`]
@@ -37,9 +36,10 @@ pub struct Error {
 }
 
 /// A Video of a [`Playlist`](super::Playlist).
+#[derive(Clone)]
 pub struct Video {
     client: Arc<Client>,
-    video: browse::playlist::PlaylistVideoRenderer,
+    video: browse::playlist::PlaylistVideo,
 }
 
 impl Video {
@@ -47,13 +47,12 @@ impl Video {
         client: Arc<Client>,
         video: browse::playlist::PlaylistVideoRenderer,
     ) -> Result<Self, Error> {
-        if video.is_playable {
-            Ok(Self { client, video })
-        } else {
-            Err(Error {
-                id: video.video_id,
-                reason: UnavailabilityReason::from_title(video.title.runs.0.text),
-            })
+        match video {
+            browse::playlist::PlaylistVideoRenderer::Ok(video) => Ok(Self { client, video }),
+            browse::playlist::PlaylistVideoRenderer::Err { title, video_id } => Err(Error {
+                id: video_id,
+                reason: UnavailabilityReason::from_title(title.runs.0.text),
+            }),
         }
     }
 
@@ -69,7 +68,7 @@ impl Video {
 
     /// The length of a video.
     pub fn length(&self) -> std::time::Duration {
-        self.video.length_seconds.expect("No Length")
+        self.video.length_seconds
     }
 
     /// The [`Thumbnails`](Thumbnail) of a video.
@@ -77,20 +76,9 @@ impl Video {
         &self.video.thumbnail.thumbnails
     }
 
-    /// Is this video playable/available?
-    pub fn playable(&self) -> bool {
-        self.video.is_playable
-    }
-
     /// The author of a video.
     pub fn channel(&self) -> super::Channel<'_> {
-        let short = &self
-            .video
-            .short_byline_text
-            .as_ref()
-            .expect("No channel")
-            .runs
-            .0;
+        let short = &self.video.short_byline_text.runs.0;
         super::Channel {
             client: Arc::clone(&self.client),
             id: short.navigation_endpoint.browse_endpoint.browse_id,
@@ -116,7 +104,6 @@ impl std::fmt::Debug for Video {
             .field("title", &self.title())
             .field("length", &self.length())
             .field("thumbnails", &self.thumbnails())
-            .field("playable", &self.playable())
             .field("author", &self.channel())
             .finish()
     }

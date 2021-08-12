@@ -29,7 +29,7 @@ use crate::{
     Client,
 };
 use reqwest::Url;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 pub(crate) async fn get(
     client: Arc<Client>,
@@ -61,9 +61,9 @@ pub(crate) async fn get(
 /// A Stream of a YouTube video
 #[derive(Clone)]
 pub enum Stream {
-    /// A [`Audio`]
+    /// A Stream exclusively containing [`Audio`] data
     Audio(Audio),
-    /// A [`Video`]
+    /// A Stream exclusively containing [`Video`] data
     Video(Video),
 }
 
@@ -103,22 +103,21 @@ impl Stream {
                     .signature_cipher
                     .as_ref()
                     .expect("Stream did not have a URL or signatureCipher");
-                let root: HashMap<String, String> =
+
+                #[derive(serde::Deserialize)]
+                struct SignatureCipher<'a> {
+                    s: String,
+                    sp: &'a str,
+                    url: String,
+                }
+
+                let mut root: SignatureCipher<'_> =
                     serde_urlencoded::from_str(signature_cipher.as_str())
                         .expect("signatureCipher was not urlencoded");
 
-                let signature = client.player().cipher().run(root["s"].clone());
-                let signature_arg = &root["sp"];
-                let mut url = Url::parse(&root["url"])
-                    .expect("signatureCipher url attribute was not a valid URL");
-
-                let query = url
-                    .query()
-                    .map(|q| format!("{}&{}={}", q, signature_arg, signature))
-                    .expect("URL did not have a query");
-
-                url.set_query(Some(&query));
-                url
+                let signature = client.player().cipher().run(root.s);
+                root.url.push_str(&format!("&{}={}", root.sp, signature));
+                Url::parse(&root.url).expect("signatureCipher url attribute was not a valid URL")
             }
         }
     }

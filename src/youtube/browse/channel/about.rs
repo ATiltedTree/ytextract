@@ -33,9 +33,22 @@ pub struct ChannelAbout {
 pub struct ChannelAboutFullMetadataRenderer {
     #[serde(default)]
     pub description: SimpleText,
-    pub view_count_text: SimpleText,
+    pub view_count_text: Option<SimpleText>,
     pub country: Option<SimpleText>,
     pub joined_date_text: JoinedDateText,
+}
+
+impl ChannelAboutFullMetadataRenderer {
+    pub fn views(&self) -> u64 {
+        self.view_count_text
+            .as_ref()
+            .and_then(|x| {
+                x.simple_text
+                    .split_once(' ')
+                    .map(|(start, _)| start.replace(',', "").parse().expect("not int"))
+            })
+            .unwrap_or(0)
+    }
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]

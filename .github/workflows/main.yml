@@ -4,6 +4,9 @@ on:
     paths-ignore:
       - docs/
       - \*.md
+  push:
+    branches:
+      - main
 
 jobs:
   format:

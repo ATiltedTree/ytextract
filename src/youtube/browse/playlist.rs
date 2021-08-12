@@ -127,20 +127,28 @@ pub struct ContinuationCommand {
 
 #[serde_as]
 #[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum PlaylistVideoRenderer {
+    Ok(PlaylistVideo),
+    Err {
+        title: Runs<TitleRun>,
+        #[serde(rename = "videoId")]
+        video_id: crate::video::Id,
+    },
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PlaylistVideoRenderer {
+pub struct PlaylistVideo {
     pub video_id: crate::video::Id,
 
     pub thumbnail: Thumbnails,
     pub title: Runs<TitleRun>,
-    pub short_byline_text: Option<Runs<BylineRun>>,
+    pub short_byline_text: Runs<BylineRun>,
 
-    #[serde_as(as = "Option<serde_with::DurationSeconds<String>>")]
-    #[serde(default)]
-    pub length_seconds: Option<Duration>,
-
-    #[serde(default)]
-    pub is_playable: bool,
+    #[serde_as(as = "serde_with::DurationSeconds<String>")]
+    pub length_seconds: Duration,
 }
 
 #[derive(Debug, Deserialize, Clone)]

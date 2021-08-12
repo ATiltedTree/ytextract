@@ -36,9 +36,6 @@ static EMBEDDED_CONTEXT: Lazy<serde_json::Value> = Lazy::new(|| {
 
 pub enum ChannelPage {
     About,
-    Playlists,
-    Channels,
-    Community,
 }
 
 pub enum Browse {
@@ -49,14 +46,14 @@ pub enum Browse {
     },
 }
 
-#[derive(Debug)]
 pub struct Api {
     pub(crate) config: Config,
-    http: reqwest::Client,
+    pub(crate) http: reqwest::Client,
 }
 
 impl Api {
-    pub async fn new(http: reqwest::Client) -> crate::Result<Self> {
+    pub async fn new() -> crate::Result<Self> {
+        let http = reqwest::Client::new();
         let tv_config = http
             .get(TV_CONFIG_URL)
             .send()
@@ -182,9 +179,6 @@ impl Api {
                 browse_id: format!("{}", id),
                 params: match page {
                     ChannelPage::About => Some(base64::encode(b"\x12\x05about")),
-                    ChannelPage::Playlists => Some(base64::encode(b"\x12\x09playlists")),
-                    ChannelPage::Channels => Some(base64::encode(b"\x12\x08channels")),
-                    ChannelPage::Community => Some(base64::encode(b"\x12\x09community")),
                 },
             },
         };

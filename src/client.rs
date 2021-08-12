@@ -8,9 +8,8 @@ use crate::{
 use std::sync::Arc;
 
 /// A Client capable of interacting with YouTube
-#[derive(Debug)]
+#[allow(missing_debug_implementations)]
 pub struct Client {
-    pub(crate) http: reqwest::Client,
     pub(crate) player: OnceCell<Player>,
     pub(crate) api: Api,
 }
@@ -18,17 +17,15 @@ pub struct Client {
 impl Client {
     /// Create a new [`Client`]
     pub async fn new() -> crate::Result<Arc<Self>> {
-        let http = reqwest::Client::new();
         Ok(Arc::new(Self {
             player: OnceCell::new(),
-            api: Api::new(http.clone()).await?,
-            http,
+            api: Api::new().await?,
         }))
     }
 
     pub(crate) async fn init_player(&self) {
         if self.player.get().is_none() {
-            let player = Player::from_url(&self.http, self.api.config.js_url())
+            let player = Player::from_url(&self.api.http, self.api.config.js_url())
                 .await
                 .expect("Unable to parse player");
 

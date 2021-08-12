@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::youtube::parse_subscribers;
+
 pub mod about;
 
 pub type Result<T> = super::Result<Ok<T>>;
@@ -22,7 +24,7 @@ impl<T> Ok<T> {
                 Tab::Some { tab_renderer } => Some(&tab_renderer.content),
                 Tab::None {} => None,
             })
-            .expect("where")
+            .expect("channel response did not contain a opened tab")
     }
 }
 
@@ -42,7 +44,21 @@ pub struct C4TabbedHeaderRenderer {
     pub banner: Thumbnails,
     #[serde(default)]
     pub badges: Vec<Badge>,
-    pub subscriber_count_text: SimpleText,
+    pub subscriber_count_text: Option<SimpleText>,
+}
+
+impl C4TabbedHeaderRenderer {
+    pub fn subscribers(&self) -> Option<u64> {
+        self.subscriber_count_text.as_ref().map(|x| {
+            parse_subscribers(
+                x.simple_text
+                    .split_once(' ')
+                    .expect("no space in subscriber_count_text")
+                    .0,
+            )
+            .expect("Unable to parse subscriber count")
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -80,10 +96,6 @@ pub struct TwoColumnBrowseResultsRenderer<T> {
 pub struct SimpleText {
     pub simple_text: String,
 }
-
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Empty {}
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", untagged)]

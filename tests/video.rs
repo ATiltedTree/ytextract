@@ -53,6 +53,7 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
     let channel = video.channel();
     assert_eq!(channel.id(), "UCXuqSBlHAE6Xw-yeJA0Tunw".parse()?);
     assert_eq!(channel.name(), "Linus Tech Tips");
+    assert_eq!(channel.id(), channel.upgrade().await?.id());
     assert!(!video.description().is_empty());
     assert!(video.views() >= 1_068_917);
 
@@ -68,7 +69,6 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
     assert!(!video.thumbnails().is_empty());
     assert!(!video.age_restricted());
     assert!(!video.unlisted());
-    assert!(video.family_safe());
     assert_eq!(video.category(), "Science & Technology");
     assert_eq!(
         video.publish_date(),
@@ -78,6 +78,37 @@ async fn get() -> Result<(), Box<dyn std::error::Error>> {
         video.upload_date(),
         chrono::NaiveDate::from_ymd(2021, 4, 14)
     );
+
+    let mut streams = video.streams().await?;
+    assert!(streams.next().is_some());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn eq() -> Result<(), Box<dyn std::error::Error>> {
+    let video1 = CLIENT.video("7B2PIVSWtJA".parse()?).await?;
+    let video2 = CLIENT.video("7B2PIVSWtJA".parse()?).await?;
+
+    assert_eq!(video1, video2);
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn eq_channel() -> Result<(), Box<dyn std::error::Error>> {
+    let video1 = CLIENT.video("7B2PIVSWtJA".parse()?).await?;
+    let video2 = CLIENT.video("7B2PIVSWtJA".parse()?).await?;
+
+    assert_eq!(video1.channel(), video2.channel());
+
+    Ok(())
+}
+
+#[async_std::test]
+async fn ratings_not_allowed() -> Result<(), Box<dyn std::error::Error>> {
+    let video = CLIENT.video("9Jg_Fwc0QOY".parse()?).await?;
+    assert_eq!(video.ratings(), Ratings::NotAllowed);
 
     Ok(())
 }
@@ -147,11 +178,10 @@ mod error {
         let id = "6MNavkSGntQ".parse()?;
 
         match CLIENT.video(id).await {
-            Ok(_) => panic!("got OK"),
             Err(ytextract::Error::Youtube(ytextract::error::Youtube::CopyrightClaim {
                 claiment,
             })) if claiment == "Richard DiBacco" => {}
-            Err(other) => panic!("{:#?}", other),
+            other => panic!("{:#?}", other),
         }
         Ok(())
     }

@@ -19,7 +19,7 @@ use crate::{
 
 /// A Id describing a Playlist.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Id(String);
+pub struct Id(pub(crate) String);
 
 impl std::str::FromStr for Id {
     type Err = crate::error::Id<0>;
@@ -143,7 +143,8 @@ impl Playlist {
     /// The [`Videos`](Video) of a playlist.
     pub fn videos(&self) -> impl futures_core::Stream<Item = Result<Video, video::Error>> + '_ {
         async_stream::stream! {
-            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem>> = Box::new(self.response.contents.videos().cloned());
+            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem>> =
+                Box::new(self.response.contents.videos().cloned());
 
             while let Some(video) = videos.next() {
                 match video {
@@ -151,12 +152,19 @@ impl Playlist {
                         yield Video::new(Arc::clone(&self.client), video);
                     }
                     browse::playlist::PlaylistItem::ContinuationItemRenderer(continuation) => {
-                        debug_assert!(videos.next().is_none(), "Found a continuation in the middle of videos!");
-                        let response: browse::continuation::Root = self.client.api.continuation(continuation.get()).await.expect("Continuation request failed");
+                        assert!(
+                            videos.next().is_none(),
+                            "Found a continuation in the middle of videos!"
+                        );
+                        let response: browse::continuation::Root = self
+                            .client
+                            .api
+                            .continuation(continuation.get())
+                            .await
+                            .expect("Continuation request failed");
                         videos = Box::new(response.into_videos());
                     }
                 }
-
             }
         }
     }

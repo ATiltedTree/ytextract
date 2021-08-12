@@ -1,7 +1,7 @@
 name: Test
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 jobs:
   test:
@@ -25,3 +25,31 @@ jobs:
         uses: Swatinem/rust-cache@v1
       - name: Build | Test
         run: cargo test --all-features
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2.3.4
+      - name: Setup | Rust
+        uses: actions-rs/toolchain@v1.0.7
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+          components: llvm-tools-preview
+      - name: Setup | Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Setup | llvm-cov
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-llvm-cov
+          version: 0.1.0-alpha.5
+      - name: Build | Coverage
+        run: cargo llvm-cov --lcov --output-path lcov.info
+      - name: Upload | Coverage
+        uses: codecov/codecov-action@v2
+        with:
+          files: lcov.info
+          fail_ci_if_error: true

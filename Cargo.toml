@@ -2,13 +2,13 @@
 name = "ytextract"
 version = "0.6.1"
 edition = "2018"
-description = "A Rust library for extracting various information from YouTube pages"
+description = "A library for getting YouTube metadata"
 readme = "README.md"
 repository = "https://github.com/ATiltedTree/ytextract/"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["youtube", "youtube-dl", "youtube-downloader"]
 categories = ["multimedia"]
-include = ["LICENSE", "src", "Cargo.toml"]
+include = ["LICENSE-*", "src", "Cargo.toml", "README.md"]
 
 [badges]
 maintenance = { status = "actively-developed" }

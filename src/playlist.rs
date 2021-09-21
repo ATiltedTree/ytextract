@@ -143,7 +143,7 @@ impl Playlist {
         let contents = self.response.contents.clone();
         let client = self.client.clone();
         async_stream::stream! {
-            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem>> =
+            let mut videos: Box<dyn Iterator<Item = browse::playlist::PlaylistItem> + Send + Sync> =
                 Box::new(contents.into_videos());
 
             while let Some(video) = videos.next() {

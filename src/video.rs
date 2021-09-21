@@ -165,7 +165,7 @@ impl Video {
         let client = self.client.clone();
 
         async_stream::stream! {
-            let mut items: Box<dyn Iterator<Item = next::RelatedItem>> =
+            let mut items: Box<dyn Iterator<Item = next::RelatedItem> + Send + Sync> =
                 Box::new(initial_items.into_iter());
 
             while let Some(item) = items.next() {

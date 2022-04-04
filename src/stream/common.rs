@@ -1,8 +1,8 @@
 use crate::{youtube::player_response::CommonFormat, Client};
 
-use reqwest::Url;
-
 use std::time::Duration;
+use std::str::FromStr;
+use std::io::Read;
 
 /// A [`Stream`](super::Stream) containing video or audio data.
 #[derive(Clone)]
@@ -13,8 +13,8 @@ pub struct Stream {
 
 impl Stream {
     /// The [`Url`] of a [`Stream`]
-    pub fn url(&self) -> Url {
-        self.format.url.clone()
+    pub fn url(&self) -> &str {
+        &self.format.url
     }
 
     /// The length of a [`Stream`] in bytes
@@ -27,29 +27,28 @@ impl Stream {
                 .api
                 .http
                 .head(self.url())
-                .send()
-                .await?
-                .error_for_status()?;
+                .call()?;
 
-            Ok(res
-                .content_length()
-                .expect("HEAD request did not have a content-length"))
+            let content_length = res
+                .header("Content-Length")
+                .expect("HEAD request did not have a content-length");
+
+            Ok(u64::from_str(content_length)
+                .expect("Invalid content-length in HEAD response"))
         }
     }
 
     /// Get the [`Stream`] as a [`AsyncStream`](futures_core::Stream) of [`Bytes`](bytes::Bytes)
     pub async fn get(
         &self,
-    ) -> crate::Result<impl futures_core::Stream<Item = Result<bytes::Bytes, reqwest::Error>>> {
+    ) -> Result<impl Read, ureq::Error> {
         Ok(self
             .client
             .api
             .http
             .get(self.url())
-            .send()
-            .await?
-            .error_for_status()?
-            .bytes_stream())
+            .call()?
+            .into_reader())
     }
 
     /// The [mime type](https://en.wikipedia.org/wiki/Media_type) of a [`Stream`]

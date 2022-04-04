@@ -5,7 +5,7 @@
 pub enum Error {
     /// A Error that can occur when requesting web content
     #[error("An Error occurred while requesting web content: {0}")]
-    Request(#[from] reqwest::Error),
+    Request(#[from] ureq::Error),
 
     /// A Error reported by YouTube
     #[error(transparent)]

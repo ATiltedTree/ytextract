@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use crate::error::Youtube;
-use reqwest::Url;
 use serde::Deserialize;
 
 use super::Thumbnails;
@@ -81,7 +80,7 @@ pub struct Format {
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CommonFormat {
-    pub url: Url,
+    pub url: String,
     pub mime_type: String,
     pub itag: u64,
     #[serde_as(as = "Option<serde_with::DisplayFromStr>")]

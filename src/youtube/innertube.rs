@@ -61,9 +61,9 @@ pub enum Next {
     Continuation(String),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Api {
-    pub(crate) http: reqwest::Client,
+    pub(crate) http: ureq::Agent,
 }
 
 fn dump(endpoint: &'static str, response: &str) {
@@ -77,6 +77,16 @@ fn dump(endpoint: &'static str, response: &str) {
         &response,
     )
     .expect("Write");
+}
+
+impl Default for Api {
+    fn default() -> Self {
+        Self {
+            http: ureq::AgentBuilder::new()
+                .timeout(TIMEOUT)
+                .build()
+        }
+    }
 }
 
 impl Api {
@@ -95,47 +105,35 @@ impl Api {
 
         let request = Request { context, request };
 
-        let request = self
+        let http_req = self
             .http
-            .post(format!("{}/{}", BASE_URL, endpoint))
-            .header("X-Goog-Api-Key", API_KEY)
-            .json(&request)
-            .timeout(TIMEOUT);
+            .post(&format!("{}/{}", BASE_URL, endpoint))
+            .set("X-Goog-Api-Key", API_KEY);
 
         let mut retry = 0;
 
         loop {
-            let response = request
-                .try_clone()
-                .unwrap()
-                .send()
-                .await
-                .and_then(|x| x.error_for_status())
-                .map(|x| x.text());
+            let response = http_req
+                .clone()
+                .send_json(&request);
 
             match response {
                 Ok(res) => {
-                    let response = res.await?;
-
+                    // following unwrap will fail on large (> 10MB) responses
+                    let res = res.into_string().unwrap();
                     if DUMP {
-                        dump(endpoint, &response)
+                        dump(endpoint, &res)
                     }
-
-                    let res = serde_json::from_str::<T>(&response).expect("Failed to parse JSON");
-                    break Ok(res);
+                    break Ok(serde_json::from_str::<T>(&res).expect("Failed to parse JSON"));
                 }
                 Err(err) => {
-                    if err.is_timeout() {
-                        if retry == RETRYS {
-                            log::error!("Timed out {} times. Stopping...", RETRYS);
-                            break Err(Error::Request(err));
-                        } else {
-                            log::warn!("Timeout reached, retrying...");
-                            retry += 1;
-                            continue;
-                        }
-                    } else {
+                    if retry == RETRYS {
+                        log::error!("Timed out {} times. Stopping...", RETRYS);
                         break Err(Error::Request(err));
+                    } else {
+                        log::warn!("Timeout reached, retrying...");
+                        retry += 1;
+                        continue;
                     }
                 }
             }
